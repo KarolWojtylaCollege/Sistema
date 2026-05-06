@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema Académico Karol Wojtyla</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles.css" />
+
+  <script>
+    // Seguridad: si el módulo JS falla o Supabase tarda demasiado, no dejamos la pantalla bloqueada.
+    window.__KW_LOADER_FALLBACK__ = setTimeout(function(){
+      var loader = document.getElementById('app-loader');
+      var login = document.getElementById('view-login');
+      if (loader && !loader.classList.contains('hidden')) {
+        loader.classList.add('hidden');
+        if (login) { login.classList.add('active'); login.classList.remove('hidden'); }
+      }
+    }, 12000);
+  </script>
+</head>
+
+<body class="bg-slate-50 text-slate-900">
+
+  <!-- LOADER -->
+  <div id="app-loader" class="fixed inset-0 z-[200] bg-white flex items-center justify-center">
+    <div class="flex flex-col items-center gap-4">
+      <div class="w-14 h-14 rounded-full border-4 border-slate-200 border-t-blue-600 animate-spin"></div>
+      <p class="text-slate-600 font-black tracking-widest uppercase text-xs italic">Cargando sistema…</p>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] hidden">
+    <div id="toastBox" class="px-5 py-3 rounded-2xl shadow-2xl font-black tracking-widest uppercase text-xs"></div>
+  </div>
+
+  <!-- LOGIN (banner izquierda / login derecha) -->
+  <section id="view-login" class="view active min-h-screen w-full flex overflow-hidden login-shell">
+
+    <!-- IZQUIERDA: BANNER (SIN ESCUDO) -->
+    <div class="hidden lg:block lg:w-1/2 login-banner-left">
+      <div class="login-banner-overlay"></div>
+      <!-- NO HAY LOGO, NO HAY TEXTO, SOLO IMAGEN -->
+    </div>
+
+    <!-- DERECHA: LOGIN -->
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-6 relative">
+      <div class="w-full max-w-md bg-white/92 backdrop-blur border border-white/40 shadow-2xl rounded-[2.5rem] p-8">
+
+        <!-- Mini header (con logo solo en login box) -->
+        <div class="flex items-center justify-center gap-3">
+          <div class="kw-logo-box kw-logo-box--sm">
+            <img src="logo.png" class="kw-logo-img" alt="Logo" onerror="this.style.display='none'" />
+            <span class="kw-logo-fallback">KW</span>
+          </div>
+          <div class="text-left">
+            <p class="text-slate-500 font-black tracking-[0.35em] uppercase text-[10px]">Colegio</p>
+            <p class="text-slate-900 font-black text-sm leading-tight">Karol Wojtyla</p>
+          </div>
+        </div>
+
+        <div class="text-center space-y-2 mt-5">
+          <h1 class="text-slate-900 font-black text-lg">Sistema Académico</h1>
+          <p class="text-slate-500 font-bold text-sm">Acceso institucional</p>
+        </div>
+
+        <form id="login-form" class="mt-8 space-y-4">
+          <input id="email-input" type="email" required
+            class="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 font-bold"
+            placeholder="Correo" />
+          <input id="pass-input" type="password" required
+            class="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 font-bold"
+            placeholder="Contraseña" />
+          <button type="submit"
+            class="w-full py-4 rounded-2xl bg-blue-600 text-white font-black tracking-widest uppercase text-xs shadow-xl">
+            Ingresar
+          </button>
+
+          <p class="text-slate-500 font-bold text-xs italic text-center">
+            Docentes (prototipo): contraseña por defecto <b>1234</b>
+          </p>
+          <p id="login-error" class="hidden text-rose-600 font-black text-sm italic text-center"></p>
+        </form>
+
+        <div class="mt-6 text-center">
+          <p class="text-slate-400 font-bold text-[11px] italic">
+            “Formando líderes con valores”
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <section id="view-app" class="view hidden min-h-screen p-6 lg:p-10 app-shell">
+    <div class="max-w-7xl mx-auto space-y-6">
+
+      <!-- HEADER -->
+      <div class="bg-white border border-slate-100 rounded-[2.5rem] shadow-xl p-6 lg:p-8 flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+        <div class="flex items-center gap-4">
+          <div class="kw-logo-box kw-logo-box--md">
+            <img src="logo.png" class="kw-logo-img" alt="Logo" onerror="this.style.display='none'" />
+            <span class="kw-logo-fallback">KW</span>
+          </div>
+          <div>
+            <p class="text-slate-500 font-black text-xs tracking-[0.35em] uppercase">Usuario</p>
+            <p id="user-name" class="text-xl font-black">—</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="text-right hidden lg:block">
+            <p class="text-slate-500 font-black text-xs tracking-[0.35em] uppercase">Rol</p>
+            <p id="user-role" class="text-xl font-black">—</p>
+          </div>
+
+          <button id="logout-btn" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black tracking-widest uppercase text-xs shadow-lg">
+            Salir
+          </button>
+        </div>
+      </div>
+
+      <div id="app-root"></div>
+    </div>
+  </section>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
