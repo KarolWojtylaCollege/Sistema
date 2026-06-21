@@ -65,6 +65,7 @@ const ADMIN_PASS = "Admin123";
 const DIRECTOR_PROFILE_KEY = "kwc_director_profile_v3";
 const LOCAL_TEACHER_CREDENTIALS_KEY = "kwc_teacher_credentials_v2";
 const LOCAL_AUDIT_KEY = "kwc_audit_logs_v2";
+const LOCAL_TUTOR_FINAL_STATUS_KEY = "kwc_tutor_final_status_v1";
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 
@@ -775,6 +776,37 @@ function getTutorField(studentId, grade, bimestre, field, defVal = "") {
   const r = getTutorReport(studentId, grade, bimestre);
   const v = r ? r[field] : null;
   return v === null || v === undefined ? defVal : v;
+}
+
+function tutorFinalStatusKey(studentId, grade, bimestre) {
+  return [SCHOOL_YEAR, grade, studentId, bimestre].map((x) => String(x || "")).join("|");
+}
+
+function getLocalTutorFinalStatus(studentId, grade, bimestre) {
+  const all = readLocalJson(LOCAL_TUTOR_FINAL_STATUS_KEY, {});
+  return all[tutorFinalStatusKey(studentId, grade, bimestre)] || "";
+}
+
+function saveLocalTutorFinalStatus(studentId, grade, bimestre, value) {
+  const all = readLocalJson(LOCAL_TUTOR_FINAL_STATUS_KEY, {});
+  const key = tutorFinalStatusKey(studentId, grade, bimestre);
+  if (value) {
+    all[key] = value;
+  } else {
+    delete all[key];
+  }
+  writeLocalJson(LOCAL_TUTOR_FINAL_STATUS_KEY, all);
+}
+
+function getTutorFinalStatus(studentId, grade) {
+  const order = ["IV BIMESTRE", "III BIMESTRE", "II BIMESTRE", "I BIMESTRE"];
+  for (const bim of order) {
+    const fromDb = getTutorField(studentId, grade, bim, "final_status", "");
+    if (fromDb) return fromDb;
+    const fromLocal = getLocalTutorFinalStatus(studentId, grade, bim);
+    if (fromLocal) return fromLocal;
+  }
+  return "";
 }
 
 /* ===== Asistencia ===== */
@@ -2066,6 +2098,18 @@ function renderTutoria() {
             <textarea id="tr_comment" class="mt-2 w-full p-4 rounded-2xl bg-white border border-slate-200 font-bold min-h-[110px]" placeholder="Escribe el comentario..."></textarea>
           </div>
 
+          <div class="mt-4 grid grid-cols-1 md:grid-cols-[180px_1fr] gap-3 items-end">
+            <div>
+              <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Situación final</div>
+              <select id="tr_final_status" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black">
+                ${["", "PRO", "RR", "PER"].map((x) => `<option value="${x}">${x || "Sin definir"}</option>`).join("")}
+              </select>
+            </div>
+            <p class="text-slate-500 font-bold text-xs leading-relaxed">
+              PRO: promovido de grado. RR: requiere recuperación. PER: permanencia en el grado.
+            </p>
+          </div>
+
           <button id="saveTutorReportBtn" class="no-print mt-4 w-full px-6 py-4 rounded-2xl bg-blue-600 text-white font-black tracking-widest uppercase text-xs shadow-xl">
             Guardar tutoría
           </button>
@@ -2270,6 +2314,7 @@ function renderAuditoria() {
 function renderOfficialBottomBox(st, grade) {
   const bims = ["I BIMESTRE", "II BIMESTRE", "III BIMESTRE", "IV BIMESTRE"];
   const labels = ["I", "II", "III", "IV"];
+  const finalStatus = getTutorFinalStatus(st.id, grade);
   const row = (title, field) => `
     <tr>
       <td class="official-bottom-label">${escapeHtml(title)}</td>
@@ -2361,6 +2406,21 @@ function renderOfficialBottomBox(st, grade) {
           </tr>
         </tbody>
       </table>
+
+      <div class="official-legal-note">
+        (*) El presente informe de progreso o libreta de notas, no muestra las calificaciones que el estudiante obtuviera después del periodo de recuperación, siendo el periodo de recuperación posterior al término del año lectivo. (**) En los cursos talleres, el calificativo que figurará en el certificado oficial de estudio, lo determina el Sistema del Ministerio de Educación (SIAGIE).
+      </div>
+
+      <table class="official-final-status-table">
+        <tr>
+          <td class="official-final-title">Situación al finalizar el periodo lectivo</td>
+          <td class="official-final-value">${escapeHtml(finalStatus)}</td>
+          <td class="official-final-blank"></td>
+        </tr>
+      </table>
+      <div class="official-final-legend">
+        PRO (para promovido de grado), RR (para requiere recuperación), PER (para permanencia en el grado)
+      </div>
 
       <table class="official-sign-table">
         <tr>
@@ -2666,6 +2726,13 @@ function printCurrentReport() {
   .official-scale-code{ text-align:center; font-weight:700; }
   .official-scale-label{ font-size:7.1px; font-weight:400; }
   .official-scale-desc{ font-size:5.45px; line-height:1.05; }
+  .official-legal-note{ border-top:1px solid #000; padding:1.6px 2.5px; font-size:5.9px; line-height:1.05; }
+  .official-final-status-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:7px; }
+  .official-final-status-table td{ border:1px solid #000; padding:3px 4px; vertical-align:middle; }
+  .official-final-title{ width:42%; text-align:center; font-weight:900; font-size:9.5px; }
+  .official-final-value{ width:9%; text-align:center; font-weight:900; font-size:9.5px; }
+  .official-final-blank{ width:49%; }
+  .official-final-legend{ font-size:5.9px; line-height:1.05; padding:1.4px 2.5px 2px; }
   .official-sign-table{ font-size:6.6px; border-top:1px solid #000; }
   .official-sign-table td{ text-align:center; padding:8px 4px 2.5px; border-right:1px solid #000; }
   .official-sign-table td:last-child{ border-right:0; }
@@ -2711,6 +2778,9 @@ document.addEventListener("change", (ev) => {
     if ($("tr_ti")) $("tr_ti").value = r?.tard_injust ?? 0;
 
     if ($("tr_comment")) $("tr_comment").value = r?.comment || "";
+    if ($("tr_final_status")) {
+      $("tr_final_status").value = r?.final_status || getLocalTutorFinalStatus(studentId, grade, b) || "";
+    }
   }
 
   if (ev.target?.id === "attDate") {
@@ -2844,6 +2914,7 @@ document.addEventListener("click", async (ev) => {
 
     const grade = state.grade;
     const bimestre = state.config.bimestre || "I BIMESTRE";
+    const finalStatus = $("tr_final_status")?.value || "";
 
     const payload = {
       student_id: String(studentId),
@@ -2862,14 +2933,23 @@ document.addEventListener("click", async (ev) => {
       tard_injust: Number($("tr_ti")?.value || 0),
 
       comment: $("tr_comment")?.value || "",
+      final_status: finalStatus,
 
       updated_by: sessionUser.email,
       at: new Date().toISOString(),
     };
 
-    const up = await sb.from("tutor_reports").upsert([payload], {
+    saveLocalTutorFinalStatus(studentId, grade, bimestre, finalStatus);
+
+    let up = await sb.from("tutor_reports").upsert([payload], {
       onConflict: "student_id,grade,year,bimestre",
     });
+    if (up.error && isSchemaColumnError(up.error)) {
+      const { final_status, ...compatiblePayload } = payload;
+      up = await sb.from("tutor_reports").upsert([compatiblePayload], {
+        onConflict: "student_id,grade,year,bimestre",
+      });
+    }
     if (up.error) return toast(up.error.message, "err");
 
     await recordAudit("tutor_report_saved", { student_id: studentId, grade, bimestre });

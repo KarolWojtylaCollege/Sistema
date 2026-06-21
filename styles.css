@@ -278,18 +278,18 @@ textarea{
 .kw-logo-img[style*="display: none"] + .kw-logo-fallback{ display:block; }
 
 /* ===== Tablas de trabajo ===== */
-table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.official-sign-table){
+table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.official-final-status-table):not(.official-sign-table){
   border-collapse:separate;
   border-spacing:0;
   overflow:hidden;
   background:#fff;
 }
-table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.official-sign-table) th{
+table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.official-final-status-table):not(.official-sign-table) th{
   background:#f4f6fa !important;
   color:#344054;
   font-size:11px;
 }
-table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.official-sign-table) td{
+table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.official-final-status-table):not(.official-sign-table) td{
   background:#fff;
 }
 
@@ -603,6 +603,27 @@ table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.offic
 .official-scale-code{ text-align:center; font-weight:700; }
 .official-scale-label{ font-size:9px; font-weight:400; }
 .official-scale-desc{ font-size:6.35px; line-height:1.12; }
+.official-legal-note{
+  border-top:1px solid #000;
+  padding:2.5px 4px;
+  font-size:6.9px;
+  line-height:1.12;
+}
+.official-final-status-table{
+  width:100%;
+  border-collapse:collapse;
+  table-layout:fixed;
+  font-size:10px;
+}
+.official-final-status-table td{
+  border:1px solid #000;
+  padding:6px 6px;
+  vertical-align:middle;
+}
+.official-final-title{ width:42%; text-align:center; font-weight:900; font-size:12px; }
+.official-final-value{ width:9%; text-align:center; font-weight:900; font-size:12px; }
+.official-final-blank{ width:49%; }
+.official-final-legend{ font-size:6.9px; line-height:1.1; padding:2px 4px 4px; }
 .official-sign-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:8px; border-top:1px solid #000; }
 .official-sign-table td{ text-align:center; padding:13px 6px 4px; border-right:1px solid #000; }
 .official-sign-table td:last-child{ border-right:0; }
@@ -691,6 +712,13 @@ table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.offic
   #reportBox .official-scale-table th{ font-size:6.4px !important; }
   #reportBox .official-scale-label{ font-size:7.1px !important; }
   #reportBox .official-scale-desc{ font-size:5.45px !important; line-height:1.05 !important; }
+  #reportBox .official-legal-note{ font-size:5.9px !important; line-height:1.05 !important; padding:1.6px 2.5px !important; }
+  #reportBox .official-final-status-table{ font-size:7px !important; }
+  #reportBox .official-final-status-table td{ padding:3px 4px !important; }
+  #reportBox .official-final-title{ font-size:9.5px !important; width:42% !important; }
+  #reportBox .official-final-value{ font-size:9.5px !important; width:9% !important; }
+  #reportBox .official-final-blank{ width:49% !important; }
+  #reportBox .official-final-legend{ font-size:5.9px !important; padding:1.4px 2.5px 2px !important; }
   #reportBox .official-sign-table{ font-size:6.9px !important; }
   #reportBox .official-sign-table td{ padding:10px 4px 3px !important; }
   #reportBox .report-note{ font-size:6.8px !important; margin-top:3px !important; }
