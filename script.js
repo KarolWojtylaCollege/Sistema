@@ -2315,62 +2315,38 @@ function renderOfficialBottomBox(st, grade) {
   const bims = ["I BIMESTRE", "II BIMESTRE", "III BIMESTRE", "IV BIMESTRE"];
   const labels = ["I", "II", "III", "IV"];
   const finalStatus = getTutorFinalStatus(st.id, grade);
-  const row = (title, field) => `
+  const tutorName = getTutorNameForGrade(grade);
+  const directorName = "Elizabeth Rojas";
+  const field = (bim, key, defVal = "") => escapeHtml(getTutorField(st.id, grade, bim, key, defVal));
+  const total = (key) =>
+    bims.reduce((sum, bim) => sum + Number(getTutorField(st.id, grade, bim, key, 0) || 0), 0);
+  const evaluationRow = (title, key) => `
     <tr>
-      <td class="official-bottom-label">${escapeHtml(title)}</td>
-      ${bims.map((b) => `<td class="official-bottom-score">${escapeHtml(getTutorField(st.id, grade, b, field, ""))}</td>`).join("")}
+      <td class="official-eval-label">${escapeHtml(title)}</td>
+      ${bims.map((b) => `<td class="official-small-cell">${field(b, key)}</td>`).join("")}
+      <td class="official-small-cell"></td>
     </tr>
   `;
-  const rowNum = (title, field) => `
+  const attendanceRow = (label, bim) => `
     <tr>
-      <td class="official-bottom-label">${escapeHtml(title)}</td>
-      ${bims.map((b) => `<td class="official-bottom-score">${escapeHtml(getTutorField(st.id, grade, b, field, 0))}</td>`).join("")}
+      <th>${escapeHtml(label)}</th>
+      <td>${field(bim, "inasist_just", "")}</td>
+      <td>${field(bim, "inasist_injust", "")}</td>
+      <td>${field(bim, "tard_just", "")}</td>
+      <td>${field(bim, "tard_injust", "")}</td>
     </tr>
   `;
+  const commentRows = bims
+    .map((bim, idx) => `
+      <tr>
+        <th>${labels[idx]}</th>
+        <td>${escapeHtml(getTutorField(st.id, grade, bim, "comment", ""))}</td>
+      </tr>
+    `)
+    .join("");
 
   return `
     <div class="official-bottom-box">
-      <div class="official-bottom-title">INFORMACIÓN COMPLEMENTARIA DEL ESTUDIANTE</div>
-      <div class="official-bottom-grid">
-        <table class="official-bottom-table">
-          <colgroup>
-            <col>
-            ${labels.map(() => `<col class="official-score-col">`).join("")}
-          </colgroup>
-          <thead>
-            <tr>
-              <th>ASISTENCIA Y PUNTUALIDAD</th>
-              ${labels.map((x) => `<th>${x}</th>`).join("")}
-            </tr>
-          </thead>
-          <tbody>
-            ${rowNum("Inasistencias justificadas", "inasist_just")}
-            ${rowNum("Inasistencias injustificadas", "inasist_injust")}
-            ${rowNum("Tardanzas justificadas", "tard_just")}
-            ${rowNum("Tardanzas injustificadas", "tard_injust")}
-          </tbody>
-        </table>
-
-        <table class="official-bottom-table">
-          <colgroup>
-            <col>
-            ${labels.map(() => `<col class="official-score-col">`).join("")}
-          </colgroup>
-          <thead>
-            <tr>
-              <th>CONVIVENCIA Y APOYO FAMILIAR</th>
-              ${labels.map((x) => `<th>${x}</th>`).join("")}
-            </tr>
-          </thead>
-          <tbody>
-            ${row("Practica valores y buena convivencia", "convivencia_valores")}
-            ${row("Respeta normas de convivencia", "convivencia_normas")}
-            ${row("Apoyo de padres en la escuela", "padres_escuela")}
-            ${row("Participación en reuniones", "padres_reuniones")}
-          </tbody>
-        </table>
-      </div>
-
       <table class="official-scale-table">
         <colgroup>
           <col class="official-scale-code-col">
@@ -2407,6 +2383,77 @@ function renderOfficialBottomBox(st, grade) {
         </tbody>
       </table>
 
+      <div class="official-footer-grid">
+        <table class="official-eval-table">
+          <colgroup>
+            <col>
+            ${labels.map(() => `<col class="official-mini-col">`).join("")}
+            <col class="official-mini-col">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>EVALUACIÓN</th>
+              <th colspan="4">BIMESTRES</th>
+              <th rowspan="2">PF</th>
+            </tr>
+            <tr>
+              <th>DE LA CONVIVENCIA</th>
+              ${labels.map((x) => `<th>${x}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${evaluationRow("Valores institucionales", "convivencia_valores")}
+            ${evaluationRow("Respeto a las normas de convivencia", "convivencia_normas")}
+            <tr class="official-subtitle-row">
+              <th>DE APOYO DE LOS PADRES</th>
+              ${labels.map((x) => `<th>${x}</th>`).join("")}
+              <th>PF</th>
+            </tr>
+            ${evaluationRow("Asiste a la escuela para padres", "padres_escuela")}
+            ${evaluationRow("Asiste a reuniones programadas por el tutor o la institución.", "padres_reuniones")}
+          </tbody>
+        </table>
+
+        <table class="official-attendance-table">
+          <thead>
+            <tr>
+              <th rowspan="2">BIMESTRES</th>
+              <th colspan="2">Inasistencias</th>
+              <th colspan="2">Tardanzas (Al Colegio)</th>
+            </tr>
+            <tr>
+              <th>Justificadas</th>
+              <th>Injustificadas</th>
+              <th>Justificadas</th>
+              <th>Injustificadas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bims.map((bim, idx) => attendanceRow(labels[idx], bim)).join("")}
+            <tr>
+              <th>TOTAL</th>
+              <td>${escapeHtml(total("inasist_just"))}</td>
+              <td>${escapeHtml(total("inasist_injust"))}</td>
+              <td>${escapeHtml(total("tard_just"))}</td>
+              <td>${escapeHtml(total("tard_injust"))}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <table class="official-comment-table">
+        <colgroup>
+          <col class="official-comment-bim-col">
+          <col>
+        </colgroup>
+        <thead>
+          <tr><th colspan="2">COMENTARIO DEL TUTOR(A)</th></tr>
+        </thead>
+        <tbody>
+          ${commentRows}
+        </tbody>
+      </table>
+
       <div class="official-legal-note">
         (*) El presente informe de progreso o libreta de notas, no muestra las calificaciones que el estudiante obtuviera después del periodo de recuperación, siendo el periodo de recuperación posterior al término del año lectivo. (**) En los cursos talleres, el calificativo que figurará en el certificado oficial de estudio, lo determina el Sistema del Ministerio de Educación (SIAGIE).
       </div>
@@ -2424,11 +2471,21 @@ function renderOfficialBottomBox(st, grade) {
 
       <table class="official-sign-table">
         <tr>
-          <td><div class="official-sign-line"></div><b>Docente Tutor(a)</b></td>
-          <td><div class="official-sign-line"></div><b>Dirección</b></td>
-          <td><div class="official-sign-line"></div><b>Padre/Madre o Apoderado</b></td>
+          <td>
+            <div class="official-sign-space"></div>
+            <div class="official-sign-line"></div>
+            <div class="official-sign-name">${escapeHtml(tutorName)}</div>
+            <b>TUTOR (A)</b>
+          </td>
+          <td>
+            <div class="official-sign-space"></div>
+            <div class="official-sign-line"></div>
+            <div class="official-sign-name">${escapeHtml(directorName)}</div>
+            <b>DIRECTORA</b>
+          </td>
         </tr>
       </table>
+      <div class="official-motto">“Wojtylianos, un camino a seguir con fe, entusiasmo y responsabilidad”</div>
     </div>
   `;
 }
@@ -2620,37 +2677,7 @@ function renderReport() {
         </tbody>
       </table>
 
-      <div style="margin-top:10px;">
-        <table class="report-main report-comment-table">
-          <colgroup>
-            <col class="report-comment-col">
-            <col>
-          </colgroup>
-          <thead>
-            <tr><th colspan="2">COMENTARIO DEL TUTOR(A)</th></tr>
-          </thead>
-          <tbody>
-            ${["I BIMESTRE","II BIMESTRE","III BIMESTRE","IV BIMESTRE"].map((bim,idx)=>{
-              const label = ["I","II","III","IV"][idx];
-              const comment = getTutorField(st.id, grade, bim, "comment", "");
-              return `
-                <tr>
-                  <td class="report-comment-label">${label}</td>
-                  <td style="white-space:pre-wrap;">${escapeHtml(comment)}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>
-
-
       ${renderOfficialBottomBox(st, grade)}
-
-      <div class="report-note">
-        <b>Nota:</b> La conclusión descriptiva mostrada corresponde al bimestre configurado actualmente:
-        <b>${escapeHtml(state.config.bimestre || "I BIMESTRE")}</b>.
-      </div>
     </div>
   `;
 }
@@ -2704,21 +2731,8 @@ function printCurrentReport() {
   .report-bim{ width:6.5mm !important; min-width:6.5mm !important; max-width:6.5mm !important; text-align:center; font-weight:900; vertical-align:middle !important; padding:.6px !important; }
   .report-desc{ width:95mm !important; white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; }
   .report-nla{ width:8mm !important; min-width:8mm !important; max-width:8mm !important; text-align:center; font-weight:900; vertical-align:middle !important; padding:.6px !important; }
-  .report-comment-table{ margin-top:1.5mm; font-size:7.2px !important; }
-  .report-comment-table col.report-comment-col{ width:10mm !important; }
-  .report-comment-table th,.report-comment-table td{ padding:1.5px 2px !important; }
-  .report-comment-label{ width:10mm !important; min-width:10mm !important; text-align:center; font-weight:900; white-space:nowrap; }
-  .official-bottom-box{ margin-top:1.6mm; border:1px solid #000; break-inside:avoid; page-break-inside:avoid; }
-  .official-bottom-title{ background:#e5e7eb; border-bottom:1px solid #000; text-align:center; font-weight:900; font-size:7.2px; padding:1.5px 3px; }
-  .official-bottom-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0; }
-  .official-bottom-table{ font-size:6.65px; }
-  .official-bottom-table col.official-score-col{ width:8mm; }
-  .official-bottom-table:first-child{ border-right:1px solid #000; }
-  .official-bottom-table th,.official-bottom-table td{ border:1px solid #000; padding:1.3px 1.8px; vertical-align:middle; }
-  .official-bottom-table th{ background:#f1f5f9; text-align:center; font-weight:900; }
-  .official-bottom-table th:first-child{ text-align:left; }
-  .official-bottom-score{ width:8mm; min-width:8mm; text-align:center; font-weight:900; }
-  .official-scale-table{ width:100%; border-collapse:collapse; table-layout:fixed; border-top:1px solid #000; font-size:5.7px; line-height:1.02; }
+  .official-bottom-box{ margin-top:1.6mm; border:0; break-inside:avoid; page-break-inside:avoid; }
+  .official-scale-table{ width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #000; font-size:5.7px; line-height:1.02; }
   .official-scale-table col.official-scale-code-col{ width:6.5mm; }
   .official-scale-table col.official-scale-label-col{ width:30mm; }
   .official-scale-table th,.official-scale-table td{ border:1px solid #000; padding:1px 1.6px; vertical-align:middle; }
@@ -2726,18 +2740,34 @@ function printCurrentReport() {
   .official-scale-code{ text-align:center; font-weight:700; }
   .official-scale-label{ font-size:7.1px; font-weight:400; }
   .official-scale-desc{ font-size:5.45px; line-height:1.05; }
-  .official-legal-note{ border-top:1px solid #000; padding:1.6px 2.5px; font-size:5.9px; line-height:1.05; }
+  .official-footer-grid{ display:grid; grid-template-columns:.45fr .55fr; gap:3mm; margin-top:3mm; }
+  .official-eval-table,.official-attendance-table,.official-comment-table{ width:100%; border-collapse:collapse; table-layout:fixed; }
+  .official-eval-table,.official-attendance-table{ font-size:6.2px; line-height:1.02; }
+  .official-eval-table th,.official-eval-table td,.official-attendance-table th,.official-attendance-table td{ border:1px solid #000; padding:1.2px 1.5px; vertical-align:middle; }
+  .official-eval-table th,.official-attendance-table th,.official-comment-table th,.official-subtitle-row th{ background:#cfcfcf; text-align:center; font-weight:900; }
+  .official-eval-label{ text-align:left; font-weight:400; }
+  .official-mini-col{ width:5.4mm; }
+  .official-small-cell{ width:5.4mm; text-align:center; font-weight:800; }
+  .official-attendance-table td{ text-align:center; }
+  .official-comment-table{ margin-top:3mm; font-size:7.7px; }
+  .official-comment-table th,.official-comment-table td{ border:1px solid #000; padding:1.8px 2px; vertical-align:middle; }
+  .official-comment-table col.official-comment-bim-col{ width:8mm; }
+  .official-comment-table tbody th{ width:8mm; background:#cfcfcf; font-size:7px; }
+  .official-comment-table tbody td{ height:10mm; white-space:pre-wrap; font-size:7.5px; line-height:1.12; }
+  .official-legal-note{ padding:1.6px 2.5px; font-size:5.9px; line-height:1.05; }
   .official-final-status-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:7px; }
   .official-final-status-table td{ border:1px solid #000; padding:3px 4px; vertical-align:middle; }
   .official-final-title{ width:42%; text-align:center; font-weight:900; font-size:9.5px; }
   .official-final-value{ width:9%; text-align:center; font-weight:900; font-size:9.5px; }
   .official-final-blank{ width:49%; }
   .official-final-legend{ font-size:5.9px; line-height:1.05; padding:1.4px 2.5px 2px; }
-  .official-sign-table{ font-size:6.6px; border-top:1px solid #000; }
-  .official-sign-table td{ text-align:center; padding:8px 4px 2.5px; border-right:1px solid #000; }
-  .official-sign-table td:last-child{ border-right:0; }
-  .official-sign-line{ border-top:1px solid #000; width:74%; margin:0 auto 3px; }
-  .report-note{ display:none; }
+  .official-sign-table{ width:82%; margin:5mm auto 0; border-collapse:collapse; table-layout:fixed; font-size:7px; }
+  .official-sign-table td{ text-align:center; padding:4px 5mm 1px; border:0; }
+  .official-sign-space{ height:10mm; }
+  .official-sign-line{ border-top:1px solid #000; width:82%; margin:0 auto 2px; }
+  .official-sign-name{ font-size:7px; line-height:1.1; min-height:12px; }
+  .official-sign-table b{ display:block; margin-top:2px; font-size:7.2px; }
+  .official-motto{ margin-top:3mm; text-align:center; font-size:6.7px; font-style:italic; font-weight:700; letter-spacing:.02em; }
   tr{ break-inside:avoid; page-break-inside:avoid; }
   @media screen{ body{ padding:12px; background:#e5e7eb; } .report-sheet{ background:#fff; padding:0; box-shadow:0 8px 40px rgba(0,0,0,.18); } }
 </style>
