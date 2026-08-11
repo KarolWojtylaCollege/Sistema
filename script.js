@@ -70,6 +70,7 @@ const OFFICIAL_YEAR_PHRASE = "Año de la esperanza y fortalecimiento de la democ
 const DIRECTOR_DISPLAY_NAME = "Maria E. Rojas Castañeda";
 const MAX_COMMENT_CHARS = 350;
 const MAX_TUTOR_COMMENT_CHARS = MAX_COMMENT_CHARS;
+const BIMESTRES = ["I BIMESTRE", "II BIMESTRE", "III BIMESTRE", "IV BIMESTRE"];
 
 /* Año escolar para Tutoría/Asignación */
 const SCHOOL_YEAR = 2026;
@@ -402,6 +403,10 @@ let state = {
   editorStudentId: "",
   editorCourse: "",
   editorBimestre: "",
+  reportCardStudentId: "",
+  reportCardBimestre: "",
+  studentReportStudentId: "",
+  studentReportBimestre: "",
 
   /* Tutoría + Asistencia */
   homeroomTutors: [],
@@ -1090,6 +1095,54 @@ function finalStatusMeaning(code) {
   }[String(code || "").trim().toUpperCase()] || "";
 }
 
+function teacherVisibleGrades(user = sessionUser) {
+  if (!user || user.role !== "teacher") return [];
+  const grades = new Set();
+  (Array.isArray(user.assignments) ? user.assignments : []).forEach((a) => {
+    if (a?.grade) grades.add(a.grade);
+  });
+  (state.homeroomTutors || []).forEach((row) => {
+    const sameEmail =
+      row.teacher_email &&
+      (row.teacher_email || "").toLowerCase() === (user.email || "").toLowerCase();
+    const sameId =
+      row.teacher_id &&
+      activeTeacherUsers().some(
+        (t) =>
+          String(t.id) === String(row.teacher_id) &&
+          (t.email || "").toLowerCase() === (user.email || "").toLowerCase()
+      );
+    if ((sameEmail || sameId) && row.grade) grades.add(row.grade);
+  });
+  return Array.from(grades);
+}
+
+function visibleStudentsForRole(grade = state.grade) {
+  if (sessionUser?.role === "director") {
+    return (state.students || []).filter((s) => !grade || (s.grado || "") === grade);
+  }
+  const allowed = teacherVisibleGrades();
+  return (state.students || []).filter(
+    (s) =>
+      allowed.includes(s.grado || "") &&
+      (!grade || (s.grado || "") === grade)
+  );
+}
+
+function ensureVisibleGradeForTeacher() {
+  if (sessionUser?.role !== "teacher") return true;
+  const allowed = teacherVisibleGrades();
+  if (!allowed.length) return false;
+  if (!allowed.includes(state.grade)) state.grade = allowed[0];
+  return true;
+}
+
+function bimestreOptions(selected) {
+  return BIMESTRES.map(
+    (x) => `<option value="${x}" ${x === selected ? "selected" : ""}>${x}</option>`
+  ).join("");
+}
+
 /* ===== Asistencia ===== */
 function getAttendanceStatus(dateISO, grade, course, studentId) {
   const row = (state.attendance || []).find(
@@ -1571,6 +1624,9 @@ function render() {
   if (!root) return;
 
   if (sessionUser?.must_change_password) state.tab = "cuenta";
+  if (sessionUser?.role === "teacher" && ["libreta", "alumno"].includes(state.tab)) {
+    ensureVisibleGradeForTeacher();
+  }
 
   const grade = state.grade;
 
@@ -1615,6 +1671,7 @@ function render() {
       ${tabBtn("matricula", "Matrícula")}
       ${tabBtn("docentes", "Docentes")}
       ${tabBtn("reportes", "Reportes")}
+      ${tabBtn("alumno", "Alumno")}
       ${tabBtn("editar", "Editar libreta")}
       ${tabBtn("libreta", "Libreta / PDF")}
       ${tabBtn("config", "Configuración")}
@@ -1627,6 +1684,8 @@ function render() {
       ${tabBtn("dashboard", "Mis cursos")}
       ${tabBtn("notas", "Notas")}
       ${tabBtn("reportes", "Reportes")}
+      ${tabBtn("alumno", "Alumno")}
+      ${tabBtn("libreta", "Libretas")}
       ${tabBtn("asistencia", "Asistencia")}
       ${teacherIsTutor ? tabBtn("tutoria", "Tutoría") : ""}
       ${tabBtn("cuenta", "Cuenta")}
@@ -1649,6 +1708,7 @@ function render() {
       ${state.tab === "docentes" ? renderDocentes() : ""}
       ${state.tab === "notas" ? renderNotas() : ""}
       ${state.tab === "reportes" ? renderReportes() : ""}
+      ${state.tab === "alumno" ? renderAlumnoDashboard() : ""}
       ${state.tab === "editar" ? renderDirectorEditor() : ""}
       ${state.tab === "asistencia" ? renderAsistencia() : ""}
       ${state.tab === "tutoria" ? renderTutoria() : ""}
@@ -1665,6 +1725,8 @@ function render() {
     state.reportCourse = "";
     state.editorStudentId = "";
     state.editorCourse = "";
+    state.reportCardStudentId = "";
+    state.studentReportStudentId = "";
     render();
   });
 
@@ -1675,7 +1737,7 @@ function render() {
     });
   });
 
-  if (sessionUser?.role === "director" && state.tab === "libreta") {
+  if (state.tab === "libreta") {
     renderReport();
   }
 
@@ -2238,6 +2300,233 @@ function renderReportes() {
             ? reports.map(renderCourseReportCard).join("")
             : `<div class="empty-state">No hay cursos asignados para mostrar reportes.</div>`
         }
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function buildStudentCoursePerformance(student, bimestre) {
+  const grade = student?.grado || state.grade;
+  return cursosPorGrado(grade).map((course) => {
+    const normalized = normalizeCourse(course);
+    const comps = competenciasPorCurso(normalized, grade);
+    const byBim = BIMESTRES.map((bim) => {
+      const values = comps
+        .map((_, idx) => getMarkValue(student.id, grade, normalized, bim, idx))
+        .filter((v) => LEVEL_POINTS[v]);
+      const avg = values.length
+        ? values.reduce((sum, v) => sum + LEVEL_POINTS[v], 0) / values.length
+        : null;
+      return {
+        bimestre: bim,
+        avg,
+        level: levelFromAverage(avg),
+        filled: values.length,
+        total: comps.length,
+      };
+    });
+    const selected = byBim.find((x) => x.bimestre === bimestre) || byBim[0];
+    return {
+      course: normalized,
+      competencies: comps.length,
+      selected,
+      byBim,
+    };
+  });
+}
+
+function buildStudentSummary(student, bimestre) {
+  const courses = buildStudentCoursePerformance(student, bimestre);
+  const counts = { AD: 0, A: 0, B: 0, C: 0 };
+  let points = 0;
+  let evaluatedCompetencies = 0;
+  let expectedCompetencies = 0;
+
+  courses.forEach((course) => {
+    expectedCompetencies += Number(course.selected?.total || 0);
+    BIMESTRES.filter((b) => b === bimestre).forEach(() => {
+      const comps = competenciasPorCurso(course.course, student.grado || state.grade);
+      comps.forEach((_, idx) => {
+        const level = getMarkValue(student.id, student.grado || state.grade, course.course, bimestre, idx);
+        if (!LEVEL_POINTS[level]) return;
+        counts[level] += 1;
+        points += LEVEL_POINTS[level];
+        evaluatedCompetencies += 1;
+      });
+    });
+  });
+
+  const average = evaluatedCompetencies ? points / evaluatedCompetencies : null;
+  const supportCourses = courses.filter((course) => ["B", "C"].includes(course.selected?.level || ""));
+  return {
+    courses,
+    counts,
+    average,
+    level: levelFromAverage(average),
+    evaluatedCompetencies,
+    expectedCompetencies,
+    missingCompetencies: Math.max(expectedCompetencies - evaluatedCompetencies, 0),
+    supportCourses,
+  };
+}
+
+function buildStudentAttendanceSummary(student, bimestre) {
+  const grade = student?.grado || state.grade;
+  const bims = BIMESTRES;
+  const tutorSelected = getTutorReport(student.id, grade, bimestre);
+  const tutorTotals = {
+    inasist_just: bims.reduce((sum, bim) => sum + Number(getTutorField(student.id, grade, bim, "inasist_just", 0) || 0), 0),
+    inasist_injust: bims.reduce((sum, bim) => sum + Number(getTutorField(student.id, grade, bim, "inasist_injust", 0) || 0), 0),
+    tard_just: bims.reduce((sum, bim) => sum + Number(getTutorField(student.id, grade, bim, "tard_just", 0) || 0), 0),
+    tard_injust: bims.reduce((sum, bim) => sum + Number(getTutorField(student.id, grade, bim, "tard_injust", 0) || 0), 0),
+  };
+  const classRows = (state.attendance || []).filter(
+    (a) =>
+      String(a.student_id) === String(student.id) &&
+      (a.grade || "") === grade
+  );
+  const classCounts = classRows.reduce(
+    (acc, row) => {
+      const status = String(row.status || "P").toUpperCase();
+      acc[status] = Number(acc[status] || 0) + 1;
+      return acc;
+    },
+    { P: 0, FJ: 0, FI: 0, T: 0 }
+  );
+
+  return { tutorSelected, tutorTotals, classCounts, classRows };
+}
+
+function renderCourseBimPills(course) {
+  return course.byBim
+    .map((bim) => {
+      const short = bim.bimestre.split(" ")[0];
+      const level = bim.level || "-";
+      return `<span class="student-bim-pill ${bim.level ? `level-soft-${bim.level.toLowerCase()}` : ""}">${escapeHtml(short)}: ${escapeHtml(level)}</span>`;
+    })
+    .join("");
+}
+
+function renderAlumnoDashboard() {
+  if (sessionUser.role === "teacher" && !ensureVisibleGradeForTeacher()) {
+    return `<div class="empty-state">No tienes alumnos asignados para consultar reportes.</div>`;
+  }
+
+  const students = visibleStudentsForRole(state.grade);
+  if (!students.length) {
+    return `<div class="empty-state">No hay alumnos disponibles para el grado seleccionado.</div>`;
+  }
+
+  if (!students.some((s) => String(s.id) === String(state.studentReportStudentId))) {
+    state.studentReportStudentId = String(students[0].id);
+  }
+  if (!state.studentReportBimestre) state.studentReportBimestre = state.config.bimestre || "I BIMESTRE";
+
+  const student = students.find((s) => String(s.id) === String(state.studentReportStudentId)) || students[0];
+  const bimestre = state.studentReportBimestre;
+  const summary = buildStudentSummary(student, bimestre);
+  const attendanceSummary = buildStudentAttendanceSummary(student, bimestre);
+  const averageText = summary.average == null ? "Sin datos" : `${summary.average.toFixed(2)} / 4`;
+  const levelText = summary.level ? `${summary.level} · ${LEVEL_LABELS[summary.level]}` : "Pendiente";
+  const completionPct = summary.expectedCompetencies
+    ? Math.round((summary.evaluatedCompetencies / summary.expectedCompetencies) * 100)
+    : 0;
+  const selectedTutor = attendanceSummary.tutorSelected || {};
+
+  return `
+    <div class="student-dashboard-page">
+      <section class="student-dashboard-hero">
+        <div>
+          <p class="report-eyebrow">Reporte por alumno</p>
+          <h2>${escapeHtml(student.nombre || "")}</h2>
+          <p>${escapeHtml(student.grado || state.grade)} · ${escapeHtml(bimestre)}</p>
+        </div>
+        <div class="student-dashboard-controls">
+          <select id="studentReportBimSel">${bimestreOptions(bimestre)}</select>
+          <select id="studentReportSel">
+            ${students.map((s) => `<option value="${s.id}" ${String(s.id) === String(student.id) ? "selected" : ""}>${escapeHtml(s.nombre)}</option>`).join("")}
+          </select>
+        </div>
+      </section>
+
+      <section class="student-dashboard-grid">
+        <div class="student-panel student-main-panel">
+          <div class="student-main-chart">
+            ${renderReportDonut(summary.counts, summary.evaluatedCompetencies, summary.level || "-")}
+            <div>
+              <p class="report-eyebrow">Rendimiento académico</p>
+              <h3>${escapeHtml(averageText)}</h3>
+              <p>${escapeHtml(levelText)}</p>
+            </div>
+          </div>
+          <div class="student-metric-grid">
+            ${renderReportMetric("Competencias calificadas", summary.evaluatedCompetencies, `${summary.expectedCompetencies} esperadas`)}
+            ${renderReportMetric("Avance", `${completionPct}%`, "del bimestre")}
+            ${renderReportMetric("Pendientes", summary.missingCompetencies, "competencias sin nota")}
+            ${renderReportMetric("Cursos en B/C", summary.supportCourses.length, "requieren seguimiento")}
+          </div>
+        </div>
+
+        <div class="student-panel">
+          <p class="report-eyebrow">Asistencia y tardanzas</p>
+          <div class="student-attendance-list">
+            ${renderReportMetric("Faltas justificadas", attendanceSummary.tutorTotals.inasist_just, "acumulado tutoría")}
+            ${renderReportMetric("Faltas injustificadas", attendanceSummary.tutorTotals.inasist_injust, "acumulado tutoría")}
+            ${renderReportMetric("Tardanzas justificadas", attendanceSummary.tutorTotals.tard_just, "acumulado tutoría")}
+            ${renderReportMetric("Tardanzas injustificadas", attendanceSummary.tutorTotals.tard_injust, "acumulado tutoría")}
+          </div>
+          <div class="student-class-attendance">
+            <span>P: ${attendanceSummary.classCounts.P || 0}</span>
+            <span>FJ: ${attendanceSummary.classCounts.FJ || 0}</span>
+            <span>FI: ${attendanceSummary.classCounts.FI || 0}</span>
+            <span>T: ${attendanceSummary.classCounts.T || 0}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="student-panel">
+        <div class="report-section-title">
+          <div>
+            <p class="report-eyebrow">Notas por curso</p>
+            <h3>Rendimiento en cada bimestre</h3>
+          </div>
+        </div>
+        <div class="student-course-list">
+          ${summary.courses.map((course) => `
+            <div class="student-course-row">
+              <div>
+                <h4>${escapeHtml(course.course)}</h4>
+                <p>${course.competencies} competencia${course.competencies === 1 ? "" : "s"}</p>
+              </div>
+              <div class="student-course-bims">
+                ${renderCourseBimPills(course)}
+              </div>
+              <div class="student-course-result">
+                <strong>${escapeHtml(course.selected?.level || "-")}</strong>
+                <span>${course.selected?.avg == null ? "Sin promedio" : course.selected.avg.toFixed(2)}</span>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </section>
+
+      <section class="student-dashboard-grid">
+        <div class="student-panel">
+          <p class="report-eyebrow">Convivencia y apoyo</p>
+          <div class="student-tutor-grid">
+            ${renderReportMetric("Valores institucionales", selectedTutor.convivencia_valores || "-", "convivencia")}
+            ${renderReportMetric("Normas de convivencia", selectedTutor.convivencia_normas || "-", "convivencia")}
+            ${renderReportMetric("Escuela para padres", selectedTutor.padres_escuela || "-", "apoyo")}
+            ${renderReportMetric("Reuniones", selectedTutor.padres_reuniones || "-", "apoyo")}
+          </div>
+        </div>
+
+        <div class="student-panel">
+          <p class="report-eyebrow">Comentario del tutor</p>
+          <div class="student-comment-box">
+            ${escapeHtml(limitCommentText(selectedTutor.comment || "Sin comentario registrado para este bimestre."))}
+          </div>
         </div>
       </section>
     </div>
@@ -3035,31 +3324,48 @@ function renderTutoria() {
 
 /* Libreta */
 function renderLibreta() {
-  if (sessionUser.role !== "director") {
-    return `<div class="bg-white border border-slate-100 shadow-2xl rounded-[2.5rem] p-6">Solo directora.</div>`;
+  if (sessionUser.role === "teacher" && !ensureVisibleGradeForTeacher()) {
+    return `<div class="empty-state">No tienes grados asignados para observar libretas.</div>`;
   }
 
-  const alumnos = state.students.filter((s) => (s.grado || "") === state.grade);
+  const alumnos = visibleStudentsForRole(state.grade);
   if (!alumnos.length) {
-    return `<div class="bg-white border border-slate-100 shadow-2xl rounded-[2.5rem] p-6">No hay alumnos en este grado.</div>`;
+    return `<div class="bg-white border border-slate-100 shadow-2xl rounded-[2.5rem] p-6">No hay alumnos disponibles en este grado.</div>`;
   }
+
+  if (!alumnos.some((a) => String(a.id) === String(state.reportCardStudentId))) {
+    state.reportCardStudentId = String(alumnos[0].id);
+  }
+  if (!state.reportCardBimestre) state.reportCardBimestre = state.config.bimestre || "I BIMESTRE";
+
+  const canPrint = sessionUser.role === "director";
 
   return `
     <div class="bg-white border border-slate-100 shadow-2xl rounded-[2.5rem] p-6 lg:p-8">
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div>
-          <h3 class="text-xl font-black">Libreta por alumno</h3>
-          <p class="text-slate-500 font-bold text-sm">Exportar a PDF: botón → luego “Guardar como PDF”.</p>
+          <p class="text-slate-500 font-black tracking-[0.18em] uppercase text-xs">${canPrint ? "Exportación" : "Solo lectura"}</p>
+          <h3 class="text-xl font-black mt-1">Libreta por alumno</h3>
+          <p class="text-slate-500 font-bold text-sm">
+            ${canPrint ? "Exportar a PDF: botón → luego “Guardar como PDF”." : "Puedes observar la libreta por bimestre, sin modificar notas ni comentarios."}
+          </p>
         </div>
-        <div class="flex gap-2 items-center">
+        <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+          <select id="repBim" class="no-print px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 font-black">
+            ${bimestreOptions(state.reportCardBimestre)}
+          </select>
           <select id="repStudent" class="no-print px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 font-black">
             ${alumnos
-              .map((a) => `<option value="${a.id}">${escapeHtml(a.nombre)}</option>`)
+              .map((a) => `<option value="${a.id}" ${String(a.id) === String(state.reportCardStudentId) ? "selected" : ""}>${escapeHtml(a.nombre)}</option>`)
               .join("")}
           </select>
-          <button id="btnPrint" class="no-print px-5 py-3 rounded-2xl bg-slate-900 text-white font-black tracking-widest uppercase text-xs shadow-lg">
-            Exportar PDF
-          </button>
+          ${
+            canPrint
+              ? `<button id="btnPrint" class="no-print px-5 py-3 rounded-2xl bg-slate-900 text-white font-black tracking-widest uppercase text-xs shadow-lg">
+                  Exportar PDF
+                </button>`
+              : `<span class="no-print px-4 py-3 rounded-2xl bg-blue-50 text-blue-700 border border-blue-100 font-black text-xs uppercase">Observación</span>`
+          }
         </div>
       </div>
 
@@ -3399,7 +3705,7 @@ function renderReport() {
   const box = $("reportBox");
   if (!box) return;
 
-  const studentId = $("repStudent")?.value;
+  const studentId = $("repStudent")?.value || state.reportCardStudentId;
   const st = state.students.find((s) => String(s.id) === String(studentId));
   if (!st) {
     box.innerHTML = "";
@@ -3407,19 +3713,24 @@ function renderReport() {
   }
 
   const grade = state.grade;
+  if (sessionUser?.role === "teacher" && !visibleStudentsForRole(grade).some((s) => String(s.id) === String(st.id))) {
+    box.innerHTML = `<div class="empty-state">No tienes permiso para observar esta libreta.</div>`;
+    return;
+  }
+  const selectedBim = state.reportCardBimestre || state.config.bimestre || "I BIMESTRE";
   const cursos = cursosPorGrado(grade);
   const fecha = new Date().toLocaleDateString("es-PE");
 
   const getMark = (course, compIndex, bim) => {
     const row = state.marks.find(
       (m) =>
-        String(m.studentId) === String(st.id) &&
+        String(markStudentId(m)) === String(st.id) &&
         (m.grade || "") === grade &&
         normalizeCourse(m.course || "") === normalizeCourse(course || "") &&
         (m.bimestre || "") === bim &&
-        Number(m.compIndex) === Number(compIndex)
+        Number(markCompIndex(m)) === Number(compIndex)
     );
-    return row?.nl || "";
+    return markLevel(row);
   };
 
   const computeNLA = (course, compIndex) => {
@@ -3469,7 +3780,7 @@ function renderReport() {
           // Aquí lo más coherente es imprimir la conclusión del BIMESTRE CONFIGURADO?
           // Pero el formato tiene 4 bimestres y 1 sola columna de conclusiones.
           // Decisión: mostrar la conclusión del BIMESTRE ACTUAL CONFIGURADO (state.config.bimestre).
-          const descBim = state.config.bimestre || "I BIMESTRE";
+          const descBim = selectedBim;
           const desc = limitCommentText(findCompDesc(st.id, grade, course, descBim, idx) || "");
 
           return `
@@ -3520,6 +3831,7 @@ function renderReport() {
         <div class="report-heading">
           <div class="report-topline">"${escapeHtml(OFFICIAL_YEAR_PHRASE)}"</div>
           <div class="report-title">INFORME DE PROGRESO ACADÉMICO - ${SCHOOL_YEAR}</div>
+          <div class="report-view-bim">Conclusiones descriptivas: ${escapeHtml(selectedBim)}</div>
         </div>
         <div class="report-header-spacer"></div>
       </div>
@@ -3617,6 +3929,7 @@ function printCurrentReport() {
   .report-header-spacer{ width:13mm; height:1px; justify-self:end; }
   .report-topline{ text-align:center; font-size:8.5px; margin:0 0 1mm; }
   .report-title{ text-align:center; font-weight:900; font-size:12px; margin:0; letter-spacing:.2px; }
+  .report-view-bim{ text-align:center; font-size:7px; margin-top:.4mm; font-weight:700; }
   table{ border-collapse:collapse; table-layout:fixed; width:100%; }
   .report-head{ font-size:8.2px; margin-bottom:2mm; }
   .report-head td{ border:1px solid #000; padding:2.4px 3px; vertical-align:top; }
@@ -3697,6 +4010,12 @@ document.addEventListener("focusout", (ev) => {
 
 document.addEventListener("change", (ev) => {
   if (ev.target?.id === "repStudent") {
+    state.reportCardStudentId = ev.target.value;
+    renderReport();
+  }
+
+  if (ev.target?.id === "repBim") {
+    state.reportCardBimestre = ev.target.value;
     renderReport();
   }
 
@@ -3707,6 +4026,16 @@ document.addEventListener("change", (ev) => {
 
   if (ev.target?.id === "reportCourseSel") {
     state.reportCourse = ev.target.value;
+    render();
+  }
+
+  if (ev.target?.id === "studentReportSel") {
+    state.studentReportStudentId = ev.target.value;
+    render();
+  }
+
+  if (ev.target?.id === "studentReportBimSel") {
+    state.studentReportBimestre = ev.target.value;
     render();
   }
 

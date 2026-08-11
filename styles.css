@@ -958,6 +958,165 @@ table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.offic
   text-transform:uppercase;
 }
 
+.student-dashboard-page{
+  display:grid;
+  gap:18px;
+}
+.student-dashboard-hero,
+.student-panel{
+  border:1px solid var(--kw-border);
+  border-radius:14px;
+  background:#fff;
+  padding:18px;
+  box-shadow:var(--kw-shadow-soft);
+  overflow-x:auto;
+}
+.student-dashboard-hero{
+  display:grid;
+  grid-template-columns:minmax(260px,1fr) minmax(360px,.8fr);
+  gap:18px;
+  align-items:end;
+}
+.student-dashboard-hero h2{
+  margin:2px 0;
+  color:var(--kw-ink);
+  font-size:24px;
+  font-weight:900;
+}
+.student-dashboard-hero p:last-child{
+  color:#64748b;
+  font-size:14px;
+  font-weight:800;
+}
+.student-dashboard-controls{
+  display:grid;
+  grid-template-columns:.7fr 1.3fr;
+  gap:10px;
+}
+.student-dashboard-controls select{
+  width:100%;
+  border:1px solid var(--kw-border);
+  border-radius:10px !important;
+  background:#f8fafc;
+  padding:12px;
+  font-weight:900;
+}
+.student-dashboard-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);
+  gap:18px;
+}
+.student-main-panel{
+  display:grid;
+  gap:16px;
+}
+.student-main-chart{
+  display:flex;
+  gap:18px;
+  align-items:center;
+}
+.student-main-chart h3{
+  margin:4px 0;
+  color:var(--kw-ink);
+  font-size:26px;
+  font-weight:900;
+}
+.student-main-chart p:last-child{
+  color:#64748b;
+  font-weight:800;
+}
+.student-metric-grid,
+.student-attendance-list,
+.student-tutor-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.student-class-attendance{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:12px;
+}
+.student-class-attendance span,
+.student-bim-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  border:1px solid #e2e8f0;
+  background:#f8fafc;
+  color:#475569;
+  padding:6px 10px;
+  font-size:12px;
+  font-weight:900;
+}
+.student-course-list{
+  display:grid;
+  gap:10px;
+}
+.student-course-row{
+  display:grid;
+  grid-template-columns:minmax(220px,1fr) minmax(260px,1.2fr) 92px;
+  gap:12px;
+  align-items:center;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  background:#fbfdff;
+  padding:12px;
+}
+.student-course-row h4{
+  margin:0;
+  color:var(--kw-ink);
+  font-size:14px;
+  font-weight:900;
+}
+.student-course-row p{
+  margin-top:2px;
+  color:#64748b;
+  font-size:12px;
+  font-weight:800;
+}
+.student-course-bims{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.student-course-result{
+  text-align:right;
+}
+.student-course-result strong{
+  display:block;
+  color:var(--kw-ink);
+  font-size:20px;
+  line-height:1;
+  font-weight:900;
+}
+.student-course-result span{
+  display:block;
+  color:#64748b;
+  font-size:12px;
+  font-weight:800;
+  margin-top:4px;
+}
+.level-soft-ad{ background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+.level-soft-a{ background:#ecfdf5; border-color:#bbf7d0; color:#047857; }
+.level-soft-b{ background:#fff7ed; border-color:#fed7aa; color:#b45309; }
+.level-soft-c{ background:#fff1f2; border-color:#fecdd3; color:#be123c; }
+.student-comment-box{
+  min-height:118px;
+  margin-top:10px;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  background:#f8fafc;
+  color:#334155;
+  padding:14px;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.45;
+  white-space:pre-wrap;
+}
+
 /* =========================================================
    LIBRETA - pantalla
    ========================================================= */
@@ -999,6 +1158,7 @@ table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.offic
 .report-header-spacer{ width:58px; height:1px; justify-self:end; }
 .report-topline{ text-align:center; font-size:10px; margin:0 0 4px; }
 .report-title{ text-align:center; font-weight:900; font-size:14px; margin:0; letter-spacing:.25px; color:#000; }
+.report-view-bim{ text-align:center; font-size:9px; margin-top:2px; font-weight:700; color:#111; }
 
 .report-head{
   width:100%;
@@ -1188,6 +1348,7 @@ table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.offic
   #reportBox .report-header-spacer{ width:13mm !important; }
   #reportBox .report-topline{ font-size:8.5px !important; margin:0 0 1mm !important; }
   #reportBox .report-title{ font-size:12.2px !important; margin:0 !important; }
+  #reportBox .report-view-bim{ font-size:7px !important; margin-top:.4mm !important; }
 
   #reportBox .report-head{ font-size:8.6px !important; margin-bottom:6px !important; }
   #reportBox .report-head td{ padding:3px 4px !important; }
@@ -1278,7 +1439,9 @@ table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.offic
     justify-content:flex-start;
   }
   .libreta-editor-toolbar,
-  .libreta-editor-layout{
+  .libreta-editor-layout,
+  .student-dashboard-hero,
+  .student-dashboard-grid{
     grid-template-columns:1fr;
   }
   .libreta-editor-controls{
@@ -1309,7 +1472,11 @@ table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.offic
     flex-direction:column;
   }
   .report-overview-metrics,
-  .course-report-stats{
+  .course-report-stats,
+  .student-metric-grid,
+  .student-attendance-list,
+  .student-tutor-grid,
+  .student-dashboard-controls{
     grid-template-columns:1fr;
   }
   .level-row{
@@ -1323,7 +1490,12 @@ table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.offic
   }
   .libreta-edit-meta,
   .editable-libreta-head,
-  .editable-competency-row{
+  .editable-competency-row,
+  .student-course-row{
     min-width:760px;
+  }
+  .student-main-chart{
+    flex-direction:column;
+    align-items:flex-start;
   }
 }
