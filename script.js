@@ -59,15 +59,17 @@ async function initSupabase() {
   return supabaseLoadPromise;
 }
 
-/* Acceso inicial de dirección: se exige cambiarlo en el primer ingreso local. */
-const ADMIN_EMAIL = "ElizabethRojas@KarolWojtyla.edu.pe";
-const ADMIN_PASS = "Admin123";
+/* Seguridad: no se deja ninguna clave administrativa fija en el código. */
 const DIRECTOR_PROFILE_KEY = "kwc_director_profile_v3";
 const LOCAL_TEACHER_CREDENTIALS_KEY = "kwc_teacher_credentials_v2";
 const LOCAL_AUDIT_KEY = "kwc_audit_logs_v2";
 const LOCAL_TUTOR_FINAL_STATUS_KEY = "kwc_tutor_final_status_v1";
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
+const OFFICIAL_YEAR_PHRASE = "Año de la esperanza y fortalecimiento de la democracia";
+const DIRECTOR_DISPLAY_NAME = "Maria E. Rojas Castañeda";
+const MAX_COMMENT_CHARS = 350;
+const MAX_TUTOR_COMMENT_CHARS = MAX_COMMENT_CHARS;
 
 /* Año escolar para Tutoría/Asignación */
 const SCHOOL_YEAR = 2026;
@@ -92,6 +94,13 @@ const GRADOS = [
 
 /* Niveles */
 const NIVELES = ["", "AD", "A", "B", "C"];
+const LEVEL_POINTS = { C: 1, B: 2, A: 3, AD: 4 };
+const LEVEL_LABELS = {
+  AD: "Logro destacado",
+  A: "Logro esperado",
+  B: "En proceso",
+  C: "En inicio",
+};
 
 /* Competencias por nivel, tomadas de las libretas oficiales de referencia. */
 const COMP_PERSONAL_SOCIAL_INICIAL = [
@@ -388,6 +397,11 @@ let state = {
   teacherCourse: null,
   studentQuery: "",
   teacherQuery: "",
+  reportBimestre: "",
+  reportCourse: "",
+  editorStudentId: "",
+  editorCourse: "",
+  editorBimestre: "",
 
   /* Tutoría + Asistencia */
   homeroomTutors: [],
@@ -471,6 +485,159 @@ function escapeHtml(s) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+const AUTOCORRECT_WORDS = {
+  academico: "académico",
+  academica: "académica",
+  actividades: "actividades",
+  ademas: "además",
+  analisis: "análisis",
+  acompanamiento: "acompañamiento",
+  acompanado: "acompañado",
+  acompanada: "acompañada",
+  area: "área",
+  areas: "áreas",
+  atencion: "atención",
+  autonomia: "autonomía",
+  automia: "autonomía",
+  basico: "básico",
+  basica: "básica",
+  bimestre: "bimestre",
+  calificacion: "calificación",
+  calificaciones: "calificaciones",
+  caracteristicas: "características",
+  cientifico: "científico",
+  cientificos: "científicos",
+  comprension: "comprensión",
+  comunicacion: "comunicación",
+  coordinacion: "coordinación",
+  creatividad: "creatividad",
+  critico: "crítico",
+  critica: "crítica",
+  desempeno: "desempeño",
+  desempenarse: "desempeñarse",
+  desempena: "desempeña",
+  demas: "demás",
+  demostro: "demostró",
+  demostracion: "demostración",
+  desmostrando: "demostrando",
+  dialogo: "diálogo",
+  dificiles: "difíciles",
+  dificultad: "dificultad",
+  dificultades: "dificultades",
+  educacion: "educación",
+  emocion: "emoción",
+  emocional: "emocional",
+  empeno: "empeño",
+  expreso: "expresó",
+  expresion: "expresión",
+  estan: "están",
+  evaluacion: "evaluación",
+  evidencio: "evidenció",
+  habito: "hábito",
+  habitos: "hábitos",
+  identifico: "identificó",
+  interes: "interés",
+  ingles: "inglés",
+  intervencion: "intervención",
+  logro: "logro",
+  logroesperado: "logro esperado",
+  logrodestacado: "logro destacado",
+  matematicas: "matemáticas",
+  matematica: "matemática",
+  mas: "más",
+  metodos: "métodos",
+  minimo: "mínimo",
+  motricidad: "motricidad",
+  nino: "niño",
+  nina: "niña",
+  observacion: "observación",
+  participacion: "participación",
+  pedagogico: "pedagógico",
+  pedagogica: "pedagógica",
+  periodo: "período",
+  practica: "práctica",
+  practicas: "prácticas",
+  produccion: "producción",
+  proposito: "propósito",
+  proximo: "próximo",
+  proxima: "próxima",
+  recuperacion: "recuperación",
+  reforzamiento: "reforzamiento",
+  relacion: "relación",
+  resolucion: "resolución",
+  responsabilidad: "responsabilidad",
+  segun: "según",
+  simbolos: "símbolos",
+  tambien: "también",
+  tecnologia: "tecnología",
+  teorico: "teórico",
+  teorica: "teórica",
+};
+
+function keepReplacementCase(source, replacement) {
+  return /^[A-ZÁÉÍÓÚÑ]/.test(source)
+    ? replacement.charAt(0).toUpperCase() + replacement.slice(1)
+    : replacement;
+}
+
+function autocorrectDescriptionText(text) {
+  let clean = String(text ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/([,.;:!?])(?=\S)/g, "$1 ")
+    .replace(/([.!?]){2,}/g, "$1")
+    .trim();
+
+  Object.entries(AUTOCORRECT_WORDS).forEach(([bad, good]) => {
+    const re = new RegExp(`\\b${bad}\\b`, "gi");
+    clean = clean.replace(re, (match) => keepReplacementCase(match, good));
+  });
+
+  clean = clean
+    .replace(/\besta\s+(en|muy|más|mas|logrando|desarrollando)\b/gi, (match) =>
+      keepReplacementCase(match, match.replace(/^esta/i, "está"))
+    )
+    .replace(/\besta\s+(próximo|próxima|cerca|pendiente|mejorando)\b/gi, (match) =>
+      keepReplacementCase(match, match.replace(/^esta/i, "está"))
+    )
+    .replace(/\bcontinua\s+(mejorando|desarrollando|fortaleciendo|avanzando|participando)\b/gi, (match) =>
+      keepReplacementCase(match, match.replace(/^continua/i, "continúa"))
+    )
+    .replace(/\bel\s+[áa]rea\b/gi, (match) => keepReplacementCase(match, "el área"))
+    .replace(/\bla\s+[áa]rea\b/gi, (match) => keepReplacementCase(match, "el área"))
+    .replace(/\blos\s+actividad(es)?\b/gi, (match) => keepReplacementCase(match, "las actividades"))
+    .replace(/\bla\s+problema\b/gi, (match) => keepReplacementCase(match, "el problema"))
+    .replace(/\bel\s+dificultad\b/gi, (match) => keepReplacementCase(match, "la dificultad"))
+    .replace(/\bdebe\s+mejorar\s+en\s+su\s+responsabilidad\b/gi, (match) =>
+      keepReplacementCase(match, "Debe fortalecer su responsabilidad")
+    )
+    .replace(/\bnecesita\s+mas\b/gi, (match) => keepReplacementCase(match, "necesita más"))
+    .replace(/\bpoco\s+a\s+poco\b/gi, (match) => keepReplacementCase(match, "progresivamente"))
+    .replace(/\bcon\s+apoyo\s+del\s+docente\b/gi, (match) => keepReplacementCase(match, "con acompañamiento del docente"))
+    .replace(/\bse\s+recomienda\s+que\s+practique\b/gi, (match) => keepReplacementCase(match, "Se recomienda que practique"))
+    .replace(/\bmatemática\s+y\s+comunicación\b/gi, (match) => keepReplacementCase(match, "Matemática y Comunicación"))
+    .replace(/\bpor\s+si\s+mism([oa]s?)\b/gi, (match) => keepReplacementCase(match, match.replace(/\bsi\b/i, "sí")))
+    .replace(/\ben\s+si\b/gi, (match) => keepReplacementCase(match, "en sí"));
+
+  clean = clean.replace(/(^|[.!?]\s+)([a-záéíóúñ])/g, (_, start, letter) => {
+    return `${start}${letter.toUpperCase()}`;
+  });
+
+  if (clean && !/[.!?]$/.test(clean)) clean += ".";
+
+  return clean;
+}
+
+function limitCommentText(text) {
+  return autocorrectDescriptionText(text).slice(0, MAX_COMMENT_CHARS);
+}
+
+function limitTutorComment(text) {
+  return limitCommentText(text);
 }
 
 function readLocalJson(key, fallback) {
@@ -599,12 +766,28 @@ function mergeTeacherSecurity(teacher) {
   return { ...teacher, ...local, assignments: teacher?.assignments || [] };
 }
 
-function isTeacherBlocked(teacher) {
-  return String(teacher?.status || "active").toLowerCase() === "blocked";
+function accountRole(user) {
+  return String(user?.role || "teacher").trim().toLowerCase();
 }
 
-function getActiveLock(teacher) {
-  const lockedUntil = teacher?.locked_until ? new Date(teacher.locked_until) : null;
+function isDirectorAccount(user) {
+  return accountRole(user) === "director";
+}
+
+function isTeacherAccount(user) {
+  return !isDirectorAccount(user);
+}
+
+function activeTeacherUsers() {
+  return (state.teachers || []).filter(isTeacherAccount);
+}
+
+function isTeacherBlocked(account) {
+  return String(account?.status || "active").toLowerCase() === "blocked";
+}
+
+function getActiveLock(account) {
+  const lockedUntil = account?.locked_until ? new Date(account.locked_until) : null;
   return lockedUntil && !isNaN(lockedUntil.getTime()) && lockedUntil > new Date()
     ? lockedUntil
     : null;
@@ -672,35 +855,125 @@ async function recordAudit(action, detail = {}, actor = sessionUser) {
   }
 }
 
-async function getDirectorProfile() {
+function getLocalDirectorProfile() {
   const current = readLocalJson(DIRECTOR_PROFILE_KEY, null);
-  if (current?.password_hash && current?.password_salt) return current;
-
-  const salt = newSalt();
-  const profile = {
-    email: ADMIN_EMAIL.toLowerCase(),
-    name: "Elizabeth Rojas",
-    password_hash: await hashPassword(ADMIN_PASS, salt),
-    password_salt: salt,
-    must_change_password: true,
-    created_at: new Date().toISOString(),
+  if (!current?.email || !current?.password_hash || !current?.password_salt) return null;
+  if (current.must_change_password && !current.password_updated_at) return null;
+  return {
+    ...current,
+    email: teacherEmailKey(current.email),
+    role: "director",
+    assignments: [],
   };
-  writeLocalJson(DIRECTOR_PROFILE_KEY, profile);
-  return profile;
+}
+
+function saveLocalDirectorProfile(profile) {
+  if (!profile?.email) return;
+  writeLocalJson(DIRECTOR_PROFILE_KEY, {
+    ...profile,
+    email: teacherEmailKey(profile.email),
+    role: "director",
+    assignments: [],
+    updated_at: new Date().toISOString(),
+  });
+}
+
+function getDirectorAccount(email = "") {
+  const key = teacherEmailKey(email);
+  const local = getLocalDirectorProfile();
+  const fromDb = (state.teachers || []).find(
+    (x) => isDirectorAccount(x) && (!key || teacherEmailKey(x.email) === key)
+  );
+  if (fromDb) {
+    const sameLocal =
+      local && teacherEmailKey(local.email) === teacherEmailKey(fromDb.email);
+    return {
+      ...(sameLocal ? local : {}),
+      ...fromDb,
+      ...(sameLocal && !fromDb.password_hash ? { password_hash: local.password_hash } : {}),
+      ...(sameLocal && !fromDb.password_salt ? { password_salt: local.password_salt } : {}),
+      ...(sameLocal && fromDb.must_change_password == null ? { must_change_password: local.must_change_password } : {}),
+      role: "director",
+      assignments: [],
+    };
+  }
+
+  if (local && (!key || teacherEmailKey(local.email) === key)) return local;
+  return null;
+}
+
+function hasDirectorAccount() {
+  const account = getDirectorAccount();
+  return !!(account?.password_hash && account?.password_salt);
+}
+
+async function persistDirectorSecurity(account, updates) {
+  const email = teacherEmailKey(account?.email);
+  const payload = { ...updates, at: new Date().toISOString() };
+
+  if (account?.id) {
+    const up = await sb.from("users").update(payload).eq("id", account.id);
+    if (!up.error) return { mode: "supabase" };
+    if (!isSchemaColumnError(up.error)) return { error: up.error };
+  }
+
+  saveLocalDirectorProfile({
+    ...(getLocalDirectorProfile() || {}),
+    ...account,
+    ...payload,
+    email,
+    name: account?.name || "Dirección",
+  });
+  return { mode: "local" };
 }
 
 async function saveDirectorPassword(password) {
-  const salt = newSalt();
-  const current = await getDirectorProfile();
-  const next = {
-    ...current,
-    password_hash: await hashPassword(password, salt),
-    password_salt: salt,
-    must_change_password: false,
-    password_updated_at: new Date().toISOString(),
+  const account = getDirectorAccount(sessionUser?.email);
+  if (!account) return { error: { message: "No se encontró la cuenta de dirección." } };
+  const payload = await makePasswordPayload(password, false);
+  return persistDirectorSecurity(account, payload);
+}
+
+async function createDirectorAccount({ name, email, password }) {
+  const security = await makePasswordPayload(password, false);
+  const profile = {
+    name,
+    email: teacherEmailKey(email),
+    role: "director",
+    assignments: [],
+    ...security,
+    at: new Date().toISOString(),
   };
-  writeLocalJson(DIRECTOR_PROFILE_KEY, next);
-  return next;
+
+  const existing = getDirectorAccount(profile.email);
+  if (existing) {
+    const result = await persistDirectorSecurity(
+      { ...existing, name: existing.name || name },
+      { ...security, name, email: profile.email, role: "director", assignments: [] }
+    );
+    if (!result.error) return result;
+    saveLocalDirectorProfile(profile);
+    return { mode: "local", warning: result.error.message };
+  }
+
+  let res = await sb.from("users").insert([profile]);
+  if (!res.error) return { mode: "supabase" };
+
+  if (isSchemaColumnError(res.error)) {
+    const compatible = {
+      name: profile.name,
+      email: profile.email,
+      role: "director",
+      assignments: [],
+      at: profile.at,
+    };
+    res = await sb.from("users").insert([compatible]);
+    saveLocalDirectorProfile(profile);
+    if (!res.error) return { mode: "local", warning: "La seguridad se guardó localmente porque faltan columnas en Supabase." };
+  }
+
+  saveLocalDirectorProfile(profile);
+  return { mode: "local", warning: res.error?.message || "Supabase no disponible." };
 }
 
 function auditDetailText(detail) {
@@ -807,6 +1080,14 @@ function getTutorFinalStatus(studentId, grade) {
     if (fromLocal) return fromLocal;
   }
   return "";
+}
+
+function finalStatusMeaning(code) {
+  return {
+    PRO: "Promovido de grado",
+    RR: "Requiere recuperación",
+    PER: "Permanencia en el grado",
+  }[String(code || "").trim().toUpperCase()] || "";
 }
 
 /* ===== Asistencia ===== */
@@ -928,6 +1209,7 @@ function attachGlobalHandlersOnce() {
   window.__KW_HANDLERS_ATTACHED__ = true;
 
   $("login-form")?.addEventListener("submit", handleLogin);
+  $("director-setup-btn")?.addEventListener("click", handleDirectorSetup);
   $("logout-btn")?.addEventListener("click", async () => {
     await recordAudit("logout", { result: "ok" }, sessionUser);
     sessionUser = null;
@@ -950,18 +1232,80 @@ window.addEventListener("load", async () => {
 
   try {
     await loadAll(true);
+    refreshDirectorSetupPanel();
   } catch (err) {
     console.warn("[KW] Modo seguro:", err?.message || err);
     toast("Sistema iniciado. Si faltan datos, revisa Supabase.", "err");
+    refreshDirectorSetupPanel();
   }
 });
 
 /* LOGIN */
+function setDirectorSetupMessage(message, type = "ok") {
+  const el = $("director-setup-msg");
+  if (!el) return;
+  el.textContent = message || "";
+  el.className =
+    "text-xs font-black text-center " +
+    (type === "err" ? "text-rose-600" : "text-blue-700");
+  if (message) el.classList.remove("hidden");
+  else el.classList.add("hidden");
+}
+
+function refreshDirectorSetupPanel() {
+  const panel = $("director-setup-panel");
+  if (!panel) return;
+  panel.classList.toggle("hidden", hasDirectorAccount());
+}
+
+async function handleDirectorSetup() {
+  hide("login-error");
+  setDirectorSetupMessage("");
+  await loadAll(false);
+
+  if (hasDirectorAccount()) {
+    refreshDirectorSetupPanel();
+    return toast("La cuenta de Dirección ya está configurada.");
+  }
+
+  const name = ($("director-name")?.value || "").trim().replace(/\s+/g, " ");
+  const email = ($("director-email")?.value || "").trim().toLowerCase();
+  const pass = ($("director-pass")?.value || "").trim();
+  const pass2 = ($("director-pass2")?.value || "").trim();
+
+  const nameError = validatePersonName(name, "El nombre de Dirección");
+  if (nameError) return setDirectorSetupMessage(nameError, "err");
+  if (!isValidEmail(email)) return setDirectorSetupMessage("Ingresa un correo válido.", "err");
+  if (activeTeacherUsers().some((u) => teacherEmailKey(u.email) === email)) {
+    return setDirectorSetupMessage("Ese correo ya está registrado como docente.", "err");
+  }
+  if (pass !== pass2) return setDirectorSetupMessage("Las contraseñas no coinciden.", "err");
+  const passError = validatePassword(pass);
+  if (passError) return setDirectorSetupMessage(passError, "err");
+
+  const result = await createDirectorAccount({ name, email, password: pass });
+  await recordAudit("director_created", {
+    email,
+    credential_mode: result.mode,
+    warning: result.warning || "",
+  }, { email, role: "director" });
+
+  await loadAll(true);
+  refreshDirectorSetupPanel();
+  setDirectorSetupMessage(
+    result.warning
+      ? "Cuenta creada. Revisa Supabase para activar columnas de seguridad."
+      : "Cuenta de Dirección creada. Ya puedes iniciar sesión."
+  );
+  toast("Acceso de Dirección creado");
+}
+
 async function handleLogin(e) {
   e.preventDefault();
   hide("login-error");
 
   await loadAll(false);
+  refreshDirectorSetupPanel();
 
   const email = ($("email-input")?.value || "").trim().toLowerCase();
   const pass = ($("pass-input")?.value || "").trim();
@@ -972,21 +1316,63 @@ async function handleLogin(e) {
     return;
   }
 
-  if (email === ADMIN_EMAIL.toLowerCase()) {
-    const profile = await getDirectorProfile();
-    const ok = await verifyStoredPassword(pass, profile);
+  const directorRaw = getDirectorAccount(email);
+  if (directorRaw) {
+    const profile = { ...directorRaw, role: "director" };
 
-    if (!ok) {
-      await recordAudit("login_failed", { email, role: "director", reason: "password" }, { email, role: "director" });
-      $("login-error").textContent = "Contraseña administrativa incorrecta.";
+    if (isTeacherBlocked(profile)) {
+      await recordAudit("login_failed", { email, role: "director", reason: "blocked" }, { email, role: "director" });
+      $("login-error").textContent = "Cuenta de Dirección bloqueada.";
       show("login-error");
       return;
     }
 
+    const activeLock = getActiveLock(profile);
+    if (activeLock) {
+      await recordAudit("login_failed", { email, role: "director", reason: "temporary_lock" }, { email, role: "director" });
+      $("login-error").textContent = `Cuenta bloqueada temporalmente hasta ${activeLock.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}.`;
+      show("login-error");
+      return;
+    }
+
+    if (!profile.password_hash || !profile.password_salt) {
+      await recordAudit("login_failed", { email, role: "director", reason: "missing_password" }, { email, role: "director" });
+      $("login-error").textContent = "La cuenta de Dirección no tiene contraseña segura configurada.";
+      show("login-error");
+      return;
+    }
+
+    const ok = await verifyStoredPassword(pass, profile);
+
+    if (!ok) {
+      const failed = Number(profile.failed_attempts || 0) + 1;
+      const updates = { failed_attempts: failed };
+      if (failed >= MAX_FAILED_ATTEMPTS) {
+        updates.locked_until = new Date(Date.now() + LOCK_MINUTES * 60 * 1000).toISOString();
+      }
+      await persistDirectorSecurity(profile, updates);
+      await recordAudit("login_failed", { email, role: "director", reason: "password" }, { email, role: "director" });
+      $("login-error").textContent =
+        failed >= MAX_FAILED_ATTEMPTS
+          ? `Demasiados intentos. Cuenta bloqueada por ${LOCK_MINUTES} minutos.`
+          : `Contraseña incorrecta. Intento ${failed} de ${MAX_FAILED_ATTEMPTS}.`;
+      show("login-error");
+      await loadAll(true);
+      refreshDirectorSetupPanel();
+      return;
+    }
+
+    await persistDirectorSecurity(profile, {
+      failed_attempts: 0,
+      locked_until: null,
+      last_login_at: new Date().toISOString(),
+    });
+
     sessionUser = {
       role: "director",
-      name: profile.name || "Elizabeth Rojas",
-      email,
+      name: profile.name || "Dirección",
+      email: profile.email || email,
+      id: profile.id || null,
       must_change_password: !!profile.must_change_password,
     };
     await recordAudit("login_ok", { email, role: "director" }, sessionUser);
@@ -994,7 +1380,7 @@ async function handleLogin(e) {
     return;
   }
 
-  const teacherRaw = state.teachers.find((x) => (x.email || "").toLowerCase() === email);
+  const teacherRaw = activeTeacherUsers().find((x) => (x.email || "").toLowerCase() === email);
   if (!teacherRaw) {
     await recordAudit("login_failed", { email, role: "teacher", reason: "not_enabled" }, { email, role: "teacher" });
     $("login-error").textContent = "Este correo no está habilitado como docente.";
@@ -1110,7 +1496,7 @@ function buildActivityFeed(limit = 10) {
     });
   }
 
-  for (const u of state.teachers || []) {
+  for (const u of activeTeacherUsers()) {
     const dt = parseAt(u);
     items.push({
       at: dt,
@@ -1228,6 +1614,8 @@ function render() {
       ${tabBtn("dashboard", "Panel")}
       ${tabBtn("matricula", "Matrícula")}
       ${tabBtn("docentes", "Docentes")}
+      ${tabBtn("reportes", "Reportes")}
+      ${tabBtn("editar", "Editar libreta")}
       ${tabBtn("libreta", "Libreta / PDF")}
       ${tabBtn("config", "Configuración")}
       ${tabBtn("auditoria", "Auditoría")}
@@ -1238,6 +1626,7 @@ function render() {
     <div class="flex flex-wrap gap-4 mb-2">
       ${tabBtn("dashboard", "Mis cursos")}
       ${tabBtn("notas", "Notas")}
+      ${tabBtn("reportes", "Reportes")}
       ${tabBtn("asistencia", "Asistencia")}
       ${teacherIsTutor ? tabBtn("tutoria", "Tutoría") : ""}
       ${tabBtn("cuenta", "Cuenta")}
@@ -1259,6 +1648,8 @@ function render() {
       ${state.tab === "matricula" ? renderMatricula() : ""}
       ${state.tab === "docentes" ? renderDocentes() : ""}
       ${state.tab === "notas" ? renderNotas() : ""}
+      ${state.tab === "reportes" ? renderReportes() : ""}
+      ${state.tab === "editar" ? renderDirectorEditor() : ""}
       ${state.tab === "asistencia" ? renderAsistencia() : ""}
       ${state.tab === "tutoria" ? renderTutoria() : ""}
       ${state.tab === "libreta" ? renderLibreta() : ""}
@@ -1271,6 +1662,9 @@ function render() {
   $("gradeSel")?.addEventListener("change", (ev) => {
     state.grade = ev.target.value;
     if (sessionUser.role !== "director") state.teacherCourse = null;
+    state.reportCourse = "";
+    state.editorStudentId = "";
+    state.editorCourse = "";
     render();
   });
 
@@ -1312,7 +1706,7 @@ function renderDashboard() {
   const grade = state.grade;
 
   const alumnosGrado = state.students.filter((s) => (s.grado || "") === grade);
-  const docentes = state.teachers.length;
+  const docentes = activeTeacherUsers().length;
   const cursos = cursosPorGrado(grade).length;
 
   const b = state.config.bimestre || "I BIMESTRE";
@@ -1478,6 +1872,378 @@ function renderDashboard() {
   `;
 }
 
+/* REPORTES */
+function markStudentId(mark) {
+  return mark?.studentId ?? mark?.student_id ?? "";
+}
+
+function markCompIndex(mark) {
+  return mark?.compIndex ?? mark?.comp_index ?? 0;
+}
+
+function markLevel(mark) {
+  return String(mark?.nl || mark?.level || "").trim().toUpperCase();
+}
+
+function getMarkValue(studentId, grade, course, bimestre, compIndex) {
+  const normalized = normalizeCourse(course);
+  const row = (state.marks || []).find(
+    (m) =>
+      String(markStudentId(m)) === String(studentId) &&
+      (m.grade || "") === grade &&
+      normalizeCourse(m.course || "") === normalized &&
+      (m.bimestre || "") === bimestre &&
+      Number(markCompIndex(m)) === Number(compIndex)
+  );
+  return markLevel(row);
+}
+
+function levelFromAverage(avg) {
+  if (!Number.isFinite(avg)) return "";
+  if (avg >= 3.5) return "AD";
+  if (avg >= 2.5) return "A";
+  if (avg >= 1.5) return "B";
+  return "C";
+}
+
+function uniqueReportTargets(assignments) {
+  const map = new Map();
+  (assignments || []).forEach((a) => {
+    if (!a?.grade || !a?.course) return;
+    const key = `${a.grade}|${normalizeCourse(a.course)}`;
+    if (!map.has(key)) map.set(key, { grade: a.grade, course: normalizeCourse(a.course) });
+  });
+  return Array.from(map.values());
+}
+
+function buildCourseReport(grade, course, bimestre) {
+  const comps = competenciasPorCurso(course, grade);
+  const students = (state.students || []).filter((s) => (s.grado || "") === grade);
+  const studentCounts = { AD: 0, A: 0, B: 0, C: 0 };
+  const markCounts = { AD: 0, A: 0, B: 0, C: 0 };
+  const studentRows = [];
+  let averageSum = 0;
+  let evaluatedStudents = 0;
+  let missingStudents = 0;
+
+  students.forEach((st) => {
+    const values = comps
+      .map((_, idx) => getMarkValue(st.id, grade, course, bimestre, idx))
+      .filter((v) => LEVEL_POINTS[v]);
+
+    values.forEach((v) => {
+      markCounts[v] += 1;
+    });
+
+    if (!values.length) {
+      missingStudents += 1;
+      studentRows.push({ name: st.nombre, avg: null, level: "", filled: 0, total: comps.length });
+      return;
+    }
+
+    const avg = values.reduce((sum, v) => sum + LEVEL_POINTS[v], 0) / values.length;
+    const level = levelFromAverage(avg);
+    studentCounts[level] += 1;
+    averageSum += avg;
+    evaluatedStudents += 1;
+    studentRows.push({ name: st.nombre, avg, level, filled: values.length, total: comps.length });
+  });
+
+  const courseAverage = evaluatedStudents ? averageSum / evaluatedStudents : null;
+  return {
+    grade,
+    course: normalizeCourse(course),
+    bimestre,
+    competencies: comps.length,
+    totalStudents: students.length,
+    evaluatedStudents,
+    missingStudents,
+    courseAverage,
+    courseLevel: levelFromAverage(courseAverage),
+    studentCounts,
+    markCounts,
+    studentRows: studentRows.sort((a, b) => (a.avg ?? -1) - (b.avg ?? -1)),
+  };
+}
+
+function renderLevelBars(counts, total) {
+  return ["AD", "A", "B", "C"]
+    .map((level) => {
+      const value = Number(counts[level] || 0);
+      const pct = total ? Math.round((value / total) * 100) : 0;
+      return `
+        <div class="level-row">
+          <div class="level-tag level-${level.toLowerCase()}">${level}</div>
+          <div class="level-meter"><span style="width:${pct}%"></span></div>
+          <div class="level-value">${value}</div>
+          <div class="level-label">${escapeHtml(LEVEL_LABELS[level])}</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function levelColor(level) {
+  return {
+    AD: "#2563eb",
+    A: "#059669",
+    B: "#d97706",
+    C: "#dc2626",
+  }[level] || "#cbd5e1";
+}
+
+function reportDonutGradient(counts, total) {
+  if (!total) return "#e2e8f0";
+  let cursor = 0;
+  const parts = ["AD", "A", "B", "C"].map((level) => {
+    const value = Number(counts[level] || 0);
+    const start = cursor;
+    const end = cursor + (value / total) * 100;
+    cursor = end;
+    return `${levelColor(level)} ${start}% ${end}%`;
+  });
+  return `conic-gradient(${parts.join(", ")})`;
+}
+
+function dominantLevel(counts) {
+  return ["AD", "A", "B", "C"].reduce((best, level) => {
+    return Number(counts[level] || 0) > Number(counts[best] || 0) ? level : best;
+  }, "AD");
+}
+
+function renderReportDonut(counts, total, centerText = "") {
+  const top = total ? dominantLevel(counts) : "";
+  const center = centerText || top || "-";
+  return `
+    <div class="report-donut-wrap">
+      <div class="report-donut" style="background:${reportDonutGradient(counts, total)}">
+        <div>
+          <strong>${escapeHtml(center)}</strong>
+          <span>${total ? `${total} registros` : "Sin datos"}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function buildReportsOverview(reports) {
+  const counts = { AD: 0, A: 0, B: 0, C: 0 };
+  let evaluated = 0;
+  let missing = 0;
+  let totalStudents = 0;
+  let weightedAverage = 0;
+  let markedCompetencies = 0;
+
+  reports.forEach((report) => {
+    ["AD", "A", "B", "C"].forEach((level) => {
+      counts[level] += Number(report.studentCounts[level] || 0);
+    });
+    evaluated += Number(report.evaluatedStudents || 0);
+    missing += Number(report.missingStudents || 0);
+    totalStudents += Number(report.totalStudents || 0);
+    markedCompetencies += Object.values(report.markCounts || {}).reduce((a, b) => a + Number(b || 0), 0);
+    if (report.courseAverage != null && report.evaluatedStudents) {
+      weightedAverage += report.courseAverage * report.evaluatedStudents;
+    }
+  });
+
+  const average = evaluated ? weightedAverage / evaluated : null;
+  return {
+    counts,
+    evaluated,
+    missing,
+    totalStudents,
+    markedCompetencies,
+    average,
+    level: levelFromAverage(average),
+    courses: reports.length,
+  };
+}
+
+function renderReportMetric(label, value, sub = "") {
+  return `
+    <div class="report-metric">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      ${sub ? `<small>${escapeHtml(sub)}</small>` : ""}
+    </div>
+  `;
+}
+
+function renderCourseReportCard(report) {
+  const avgText = report.courseAverage == null ? "Sin datos" : `${report.courseAverage.toFixed(2)} / 4`;
+  const levelText = report.courseLevel ? `${report.courseLevel} · ${LEVEL_LABELS[report.courseLevel]}` : "Pendiente";
+  const rows = report.studentRows.slice(0, 8);
+  const completedPct = report.totalStudents
+    ? Math.round((report.evaluatedStudents / report.totalStudents) * 100)
+    : 0;
+
+  return `
+    <article class="course-report-card">
+      <div class="course-report-head">
+        <div>
+          <p class="text-slate-500 font-black tracking-[0.18em] uppercase text-xs">${escapeHtml(report.grade)}</p>
+          <h3>${escapeHtml(report.course)}</h3>
+          <p class="text-slate-500 font-bold text-sm mt-1">${escapeHtml(report.bimestre)} · ${report.competencies} competencia${report.competencies === 1 ? "" : "s"}</p>
+        </div>
+        <div class="report-average-pill">
+          <span>${escapeHtml(avgText)}</span>
+          <small>${escapeHtml(levelText)}</small>
+        </div>
+      </div>
+
+      <div class="course-report-grid">
+        <div class="course-report-chart">
+          ${renderReportDonut(report.studentCounts, report.evaluatedStudents, report.courseLevel || "-")}
+        </div>
+        <div class="course-report-bars">
+          <p class="report-eyebrow">Alumnos por nivel</p>
+          ${renderLevelBars(report.studentCounts, report.evaluatedStudents)}
+        </div>
+        <div class="course-report-stats">
+          ${renderReportMetric("Evaluados", report.evaluatedStudents, `${report.totalStudents} alumnos`)}
+          ${renderReportMetric("Pendientes", report.missingStudents, "sin calificación")}
+          ${renderReportMetric("Avance", `${completedPct}%`, "del curso")}
+          ${renderReportMetric("Registros", Object.values(report.markCounts).reduce((a, b) => a + b, 0), "competencias")}
+        </div>
+      </div>
+
+      <details class="report-details">
+        <summary>Detalle de alumnos con menor avance</summary>
+        <div class="mt-3 overflow-auto">
+          <table class="w-full min-w-[560px] border border-slate-200">
+            <thead>
+              <tr>
+                <th class="p-3 text-left">Alumno</th>
+                <th class="p-3 text-center">Promedio</th>
+                <th class="p-3 text-center">Nivel</th>
+                <th class="p-3 text-center">Avance</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                rows.length
+                  ? rows
+                      .map(
+                        (r) => `
+                          <tr>
+                            <td class="p-3 font-bold">${escapeHtml(r.name)}</td>
+                            <td class="p-3 text-center font-black">${r.avg == null ? "-" : r.avg.toFixed(2)}</td>
+                            <td class="p-3 text-center font-black">${escapeHtml(r.level || "-")}</td>
+                            <td class="p-3 text-center font-bold">${r.filled}/${r.total}</td>
+                          </tr>
+                        `
+                      )
+                      .join("")
+                  : `<tr><td colspan="4" class="p-4 text-center text-slate-500 font-bold">Sin alumnos.</td></tr>`
+              }
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </article>
+  `;
+}
+
+function renderReportes() {
+  const bim = state.reportBimestre || state.config.bimestre || "I BIMESTRE";
+  const bimestreOptions = ["I BIMESTRE", "II BIMESTRE", "III BIMESTRE", "IV BIMESTRE"]
+    .map((x) => `<option value="${x}" ${x === bim ? "selected" : ""}>${x}</option>`)
+    .join("");
+
+  let targets = [];
+  let headerExtra = "";
+
+  if (sessionUser.role === "director") {
+    const courses = cursosPorGrado(state.grade).map(normalizeCourse);
+    const selectedCourse = state.reportCourse || "";
+    targets = courses
+      .filter((course) => !selectedCourse || normalizeCourse(course) === normalizeCourse(selectedCourse))
+      .map((course) => ({ grade: state.grade, course }));
+    headerExtra = `
+      <select id="reportCourseSel" class="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 font-black">
+        <option value="">Todos los cursos</option>
+        ${courses.map((c) => `<option value="${escapeHtml(c)}" ${normalizeCourse(c) === normalizeCourse(selectedCourse) ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+      </select>
+    `;
+  } else {
+    targets = uniqueReportTargets(sessionUser.assignments || []);
+  }
+
+  const reports = targets.map((t) => buildCourseReport(t.grade, t.course, bim));
+  const overview = buildReportsOverview(reports);
+  const overviewLevelText = overview.level ? `${overview.level} · ${LEVEL_LABELS[overview.level]}` : "Sin promedio";
+  const riskTotal = Number(overview.counts.B || 0) + Number(overview.counts.C || 0);
+  const riskPct = overview.evaluated ? Math.round((riskTotal / overview.evaluated) * 100) : 0;
+
+  return `
+    <div class="report-page">
+      <section class="report-hero">
+        <div class="report-hero-main">
+          <div>
+            <p class="text-slate-500 font-black tracking-[0.18em] uppercase text-xs">Reportes académicos</p>
+            <h2 class="text-xl font-black mt-1">${sessionUser.role === "director" ? "Resumen por aula y curso" : "Mis cursos asignados"}</h2>
+            <p class="text-slate-500 font-bold text-sm mt-1">
+              Promedio por curso y distribución de estudiantes en AD, A, B y C.
+            </p>
+          </div>
+          <div class="report-controlbar">
+            <select id="reportBimSel" class="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 font-black">
+              ${bimestreOptions}
+            </select>
+            ${headerExtra}
+          </div>
+        </div>
+      </section>
+
+      <section class="report-section">
+        <div class="report-section-title">
+          <div>
+            <p class="report-eyebrow">Panorama general</p>
+            <h3>${escapeHtml(bim)}</h3>
+          </div>
+          <span>${overview.courses} curso${overview.courses === 1 ? "" : "s"} analizado${overview.courses === 1 ? "" : "s"}</span>
+        </div>
+
+        <div class="report-overview">
+          <div class="report-overview-chart">
+            ${renderReportDonut(overview.counts, overview.evaluated, overview.level || "-")}
+            <div>
+              <p class="report-eyebrow">Nivel predominante</p>
+              <h4>${escapeHtml(overviewLevelText)}</h4>
+              <p>${overview.average == null ? "Aún no hay suficientes calificaciones." : `Promedio global ${overview.average.toFixed(2)} de 4.`}</p>
+            </div>
+          </div>
+
+          <div class="report-overview-metrics">
+            ${renderReportMetric("Evaluaciones registradas", overview.markedCompetencies, "competencias calificadas")}
+            ${renderReportMetric("Alumnos evaluados", overview.evaluated, "conteo por curso")}
+            ${renderReportMetric("Pendientes", overview.missing, "alumnos sin datos")}
+            ${renderReportMetric("B/C", `${riskPct}%`, "requiere seguimiento")}
+          </div>
+        </div>
+      </section>
+
+      <section class="report-section">
+        <div class="report-section-title">
+          <div>
+            <p class="report-eyebrow">Detalle por curso</p>
+            <h3>Distribución y avance</h3>
+          </div>
+        </div>
+
+        <div class="course-report-list">
+        ${
+          reports.length
+            ? reports.map(renderCourseReportCard).join("")
+            : `<div class="empty-state">No hay cursos asignados para mostrar reportes.</div>`
+        }
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 /* UI helpers */
 function kpiCard(icon, label, value, sub) {
   return `
@@ -1575,8 +2341,9 @@ function renderDocentes() {
     (g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`
   ).join("");
 
+  const teacherUsers = activeTeacherUsers();
   const teacherQuery = (state.teacherQuery || "").trim().toLowerCase();
-  const filteredTeachers = (state.teachers.length ? state.teachers : []).filter((tch) => {
+  const filteredTeachers = teacherUsers.filter((tch) => {
     const haystack = [
       tch.name || "",
       tch.email || "",
@@ -1589,7 +2356,7 @@ function renderDocentes() {
     return !teacherQuery || haystack.includes(teacherQuery);
   });
 
-  const teacherCards = (state.teachers.length ? state.teachers : [])
+  const teacherCards = teacherUsers
     .map((tch) => {
       const assigns = Array.isArray(tch.assignments) ? tch.assignments : [];
       const secured = mergeTeacherSecurity(tch);
@@ -1743,7 +2510,7 @@ function renderDocentes() {
 
               <select id="tutorTeacherSel" class="mt-2 w-full px-3 py-3 rounded-2xl bg-white border border-slate-200 font-black">
                 <option value="">Selecciona un docente</option>
-                ${(state.teachers || [])
+                ${teacherUsers
                   .map(
                     (tt) =>
                       `<option value="${tt.id}">${escapeHtml(tt.name)} (${escapeHtml(tt.email)})</option>`
@@ -1786,7 +2553,7 @@ function renderDocentes() {
           <div>
             <p class="text-slate-500 font-black tracking-[0.18em] uppercase text-xs">Docentes</p>
             <h3 class="text-lg font-black mt-1">Cuentas y asignaciones</h3>
-            <p class="text-slate-500 font-bold text-sm">${filteredTeachers.length} de ${state.teachers.length} docente${state.teachers.length === 1 ? "" : "s"}.</p>
+            <p class="text-slate-500 font-bold text-sm">${filteredTeachers.length} de ${teacherUsers.length} docente${teacherUsers.length === 1 ? "" : "s"}.</p>
           </div>
           <input id="teacherSearch" class="filter-input w-full md:w-80 px-4 py-3 bg-slate-50 border border-slate-200 font-bold"
             placeholder="Buscar por nombre, correo o curso..." value="${escapeHtml(state.teacherQuery || "")}" />
@@ -1881,7 +2648,7 @@ function renderNotas() {
                       const saved = state.marks.find((m) => m.id === id);
                       const val = saved?.nl || "";
 
-                      const dsc = findCompDesc(st.id, state.grade, course, bim, idx);
+                      const dsc = limitCommentText(findCompDesc(st.id, state.grade, course, bim, idx));
 
                       return `
                       <td class="p-2 min-w-[220px]">
@@ -1894,8 +2661,9 @@ function renderNotas() {
                           </select>
 
                           <textarea
-                            class="comp-desc-input w-full p-2 rounded-xl bg-white border border-slate-200 font-bold"
+                            class="comp-desc-input auto-correct-text w-full p-2 rounded-xl bg-white border border-slate-200 font-bold"
                             id="cd_${st.id}_${idx}"
+                            maxlength="${MAX_COMMENT_CHARS}"
                             placeholder="Conclusión descriptiva (competencia ${idx + 1})...">${escapeHtml(dsc)}</textarea>
                         </div>
                       </td>
@@ -1920,6 +2688,141 @@ function renderNotas() {
           ? `<p class="mt-4 text-rose-600 font-black italic">Bloqueo activo: no se puede editar.</p>`
           : ``
       }
+    </div>
+  `;
+}
+
+/* Edición directa de libreta (Dirección) */
+function renderDirectorEditor() {
+  if (sessionUser.role !== "director") {
+    return `<div class="bg-white border border-slate-100 shadow-2xl rounded-[2.5rem] p-6">Solo directora.</div>`;
+  }
+
+  const alumnos = state.students.filter((s) => (s.grado || "") === state.grade);
+  const courses = cursosPorGrado(state.grade).map(normalizeCourse);
+  if (!alumnos.length || !courses.length) {
+    return `<div class="empty-state">No hay alumnos o cursos disponibles para este grado.</div>`;
+  }
+
+  if (!alumnos.some((a) => String(a.id) === String(state.editorStudentId))) {
+    state.editorStudentId = String(alumnos[0].id);
+  }
+  if (!courses.some((c) => normalizeCourse(c) === normalizeCourse(state.editorCourse))) {
+    state.editorCourse = courses[0];
+  }
+  if (!state.editorBimestre) state.editorBimestre = state.config.bimestre || "I BIMESTRE";
+
+  const studentId = state.editorStudentId;
+  const course = normalizeCourse(state.editorCourse);
+  const bimestre = state.editorBimestre;
+  const comps = competenciasPorCurso(course, state.grade);
+  const selectedStudent = alumnos.find((a) => String(a.id) === String(studentId));
+
+  return `
+    <div class="libreta-editor-page">
+      <section class="libreta-editor-toolbar">
+        <div>
+          <p class="report-eyebrow">Edición directa</p>
+          <h2>Corregir libreta</h2>
+          <p>Selecciona alumno, curso y bimestre. Los cambios se guardan en notas y conclusiones descriptivas.</p>
+        </div>
+        <div class="libreta-editor-controls">
+          <label>
+            <span>Alumno</span>
+            <select id="dirEditStudent">
+              ${alumnos.map((a) => `<option value="${a.id}" ${String(a.id) === String(studentId) ? "selected" : ""}>${escapeHtml(a.nombre)}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Curso</span>
+            <select id="dirEditCourse">
+              ${courses.map((c) => `<option value="${escapeHtml(c)}" ${normalizeCourse(c) === course ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Bimestre</span>
+            <select id="dirEditBim">
+              ${["I BIMESTRE", "II BIMESTRE", "III BIMESTRE", "IV BIMESTRE"].map((x) => `<option value="${x}" ${x === bimestre ? "selected" : ""}>${x}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <div class="libreta-editor-layout">
+        <section class="libreta-edit-paper">
+          <div class="libreta-edit-header">
+            <img src="insignia-emblema.png" alt="Insignia" onerror="this.style.display='none'">
+            <div>
+              <p>"${escapeHtml(OFFICIAL_YEAR_PHRASE)}"</p>
+              <h3>INFORME DE PROGRESO ACADÉMICO - ${SCHOOL_YEAR}</h3>
+            </div>
+          </div>
+
+          <div class="libreta-edit-meta">
+            <div><span>Alumno</span><strong>${escapeHtml(selectedStudent?.nombre || "")}</strong></div>
+            <div><span>Grado</span><strong>${escapeHtml(state.grade)}</strong></div>
+            <div><span>Curso</span><strong>${escapeHtml(course)}</strong></div>
+            <div><span>Bimestre</span><strong>${escapeHtml(bimestre)}</strong></div>
+          </div>
+
+          <div class="editable-libreta-head">
+            <span>Competencias</span>
+            <span>Nivel</span>
+            <span>Conclusión descriptiva</span>
+          </div>
+
+          <div class="editable-libreta-body">
+            ${
+              comps.length
+                ? comps
+                    .map((comp, idx) => {
+                      const level = getMarkValue(studentId, state.grade, course, bimestre, idx);
+                      const desc = limitCommentText(findCompDesc(studentId, state.grade, course, bimestre, idx));
+                      return `
+                        <div class="editable-competency-row">
+                          <div class="editable-competency-title">
+                            <span>C${idx + 1}</span>
+                            <p>${escapeHtml(comp)}</p>
+                          </div>
+                          <div class="editable-competency-level">
+                            <select id="dir_mk_${idx}">
+                              ${NIVELES.map((n) => `<option value="${n}" ${n === level ? "selected" : ""}>${n || "—"}</option>`).join("")}
+                            </select>
+                          </div>
+                          <div class="editable-competency-desc">
+                            <textarea id="dir_cd_${idx}" maxlength="${MAX_COMMENT_CHARS}" class="director-desc-input auto-correct-text" placeholder="Conclusión descriptiva de la competencia...">${escapeHtml(desc)}</textarea>
+                          </div>
+                        </div>
+                      `;
+                    })
+                    .join("")
+                : `<div class="empty-state">Este curso no tiene competencias configuradas.</div>`
+            }
+          </div>
+        </section>
+
+        <aside class="libreta-editor-aside">
+          <div>
+            <p class="report-eyebrow">Escala</p>
+            ${["AD", "A", "B", "C"].map((level) => `
+              <div class="scale-hint">
+                <span class="level-tag level-${level.toLowerCase()}">${level}</span>
+                <div>
+                  <strong>${escapeHtml(LEVEL_LABELS[level])}</strong>
+                  <small>${level === "AD" ? "Superior a lo esperado" : level === "A" ? "Nivel esperado" : level === "B" ? "Próximo al nivel esperado" : "Requiere mayor acompañamiento"}</small>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+
+          <div class="editor-save-panel">
+            <p>La autocorrección se aplica al salir del texto y también al guardar.</p>
+            <button id="saveDirectorLibreta" class="no-print">
+              Guardar cambios
+            </button>
+          </div>
+        </aside>
+      </div>
     </div>
   `;
 }
@@ -2095,7 +2998,8 @@ function renderTutoria() {
 
           <div class="mt-4">
             <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Comentario del tutor</div>
-            <textarea id="tr_comment" class="mt-2 w-full p-4 rounded-2xl bg-white border border-slate-200 font-bold min-h-[110px]" placeholder="Escribe el comentario..."></textarea>
+            <textarea id="tr_comment" maxlength="${MAX_COMMENT_CHARS}" class="auto-correct-text mt-2 w-full p-4 rounded-2xl bg-white border border-slate-200 font-bold min-h-[110px]" placeholder="Escribe el comentario..."></textarea>
+            <p class="mt-1 text-slate-400 font-bold text-xs">Máximo ${MAX_COMMENT_CHARS} caracteres.</p>
           </div>
 
           <div class="mt-4 grid grid-cols-1 md:grid-cols-[180px_1fr] gap-3 items-end">
@@ -2314,9 +3218,10 @@ function renderAuditoria() {
 function renderOfficialBottomBox(st, grade) {
   const bims = ["I BIMESTRE", "II BIMESTRE", "III BIMESTRE", "IV BIMESTRE"];
   const labels = ["I", "II", "III", "IV"];
-  const finalStatus = getTutorFinalStatus(st.id, grade);
+  const finalStatus = String(getTutorFinalStatus(st.id, grade) || "").trim().toUpperCase();
+  const finalStatusText = finalStatusMeaning(finalStatus);
   const tutorName = getTutorNameForGrade(grade);
-  const directorName = "Elizabeth Rojas";
+  const directorName = DIRECTOR_DISPLAY_NAME;
   const field = (bim, key, defVal = "") => escapeHtml(getTutorField(st.id, grade, bim, key, defVal));
   const total = (key) =>
     bims.reduce((sum, bim) => sum + Number(getTutorField(st.id, grade, bim, key, 0) || 0), 0);
@@ -2340,7 +3245,7 @@ function renderOfficialBottomBox(st, grade) {
     .map((bim, idx) => `
       <tr>
         <th>${labels[idx]}</th>
-        <td>${escapeHtml(getTutorField(st.id, grade, bim, "comment", ""))}</td>
+        <td>${escapeHtml(limitTutorComment(getTutorField(st.id, grade, bim, "comment", "")))}</td>
       </tr>
     `)
     .join("");
@@ -2462,7 +3367,7 @@ function renderOfficialBottomBox(st, grade) {
         <tr>
           <td class="official-final-title">Situación al finalizar el periodo lectivo</td>
           <td class="official-final-value">${escapeHtml(finalStatus)}</td>
-          <td class="official-final-blank"></td>
+          <td class="official-final-blank">${escapeHtml(finalStatusText)}</td>
         </tr>
       </table>
       <div class="official-final-legend">
@@ -2565,7 +3470,7 @@ function renderReport() {
           // Pero el formato tiene 4 bimestres y 1 sola columna de conclusiones.
           // Decisión: mostrar la conclusión del BIMESTRE ACTUAL CONFIGURADO (state.config.bimestre).
           const descBim = state.config.bimestre || "I BIMESTRE";
-          const desc = findCompDesc(st.id, grade, course, descBim, idx) || "";
+          const desc = limitCommentText(findCompDesc(st.id, grade, course, descBim, idx) || "");
 
           return `
             <tr>
@@ -2613,7 +3518,7 @@ function renderReport() {
           <img src="${escapeHtml(insigniaSrc)}" alt="Insignia Karol Wojtyla College" onerror="this.style.display='none'">
         </div>
         <div class="report-heading">
-          <div class="report-topline">"Año de la recuperación y consolidación de la economía peruana"</div>
+          <div class="report-topline">"${escapeHtml(OFFICIAL_YEAR_PHRASE)}"</div>
           <div class="report-title">INFORME DE PROGRESO ACADÉMICO - ${SCHOOL_YEAR}</div>
         </div>
         <div class="report-header-spacer"></div>
@@ -2759,7 +3664,7 @@ function printCurrentReport() {
   .official-final-status-table td{ border:1px solid #000; padding:3px 4px; vertical-align:middle; }
   .official-final-title{ width:42%; text-align:center; font-weight:900; font-size:9.5px; }
   .official-final-value{ width:9%; text-align:center; font-weight:900; font-size:9.5px; }
-  .official-final-blank{ width:49%; }
+  .official-final-blank{ width:49%; text-align:left; font-weight:800; font-size:7px; }
   .official-final-legend{ font-size:5.9px; line-height:1.05; padding:1.4px 2.5px 2px; }
   .official-sign-table{ width:82%; margin:5mm auto 0; border-collapse:collapse; table-layout:fixed; font-size:7px; }
   .official-sign-table td{ text-align:center; padding:4px 5mm 1px; border:0; }
@@ -2783,9 +3688,41 @@ function printCurrentReport() {
 }
 
 /* ====== EVENTOS ====== */
+document.addEventListener("focusout", (ev) => {
+  const el = ev.target;
+  if (!el?.matches?.(".auto-correct-text, .comp-desc-input, .director-desc-input, #tr_comment")) return;
+  const corrected = limitCommentText(el.value || "");
+  if (corrected !== el.value) el.value = corrected;
+});
+
 document.addEventListener("change", (ev) => {
   if (ev.target?.id === "repStudent") {
     renderReport();
+  }
+
+  if (ev.target?.id === "reportBimSel") {
+    state.reportBimestre = ev.target.value;
+    render();
+  }
+
+  if (ev.target?.id === "reportCourseSel") {
+    state.reportCourse = ev.target.value;
+    render();
+  }
+
+  if (ev.target?.id === "dirEditStudent") {
+    state.editorStudentId = ev.target.value;
+    render();
+  }
+
+  if (ev.target?.id === "dirEditCourse") {
+    state.editorCourse = ev.target.value;
+    render();
+  }
+
+  if (ev.target?.id === "dirEditBim") {
+    state.editorBimestre = ev.target.value;
+    render();
   }
 
   if (ev.target?.id === "tutStudentSel") {
@@ -2807,7 +3744,7 @@ document.addEventListener("change", (ev) => {
     if ($("tr_tj")) $("tr_tj").value = r?.tard_just ?? 0;
     if ($("tr_ti")) $("tr_ti").value = r?.tard_injust ?? 0;
 
-    if ($("tr_comment")) $("tr_comment").value = r?.comment || "";
+    if ($("tr_comment")) $("tr_comment").value = limitTutorComment(r?.comment || "");
     if ($("tr_final_status")) {
       $("tr_final_status").value = r?.final_status || getLocalTutorFinalStatus(studentId, grade, b) || "";
     }
@@ -2879,21 +3816,24 @@ document.addEventListener("click", async (ev) => {
     if (passError) return toast(passError, "err");
 
     if (sessionUser.role === "director") {
-      const profile = await getDirectorProfile();
+      const profile = getDirectorAccount(sessionUser.email);
+      if (!profile) return toast("No se encontró tu cuenta de Dirección.", "err");
       const ok = await verifyStoredPassword(currentPass, profile);
       if (!ok) {
         await recordAudit("password_change_failed", { role: "director", reason: "current_password" });
         return toast("Contraseña actual incorrecta.", "err");
       }
-      await saveDirectorPassword(newPass);
+      const result = await saveDirectorPassword(newPass);
+      if (result.error) return toast(result.error.message || "No se pudo guardar.", "err");
       sessionUser.must_change_password = false;
-      await recordAudit("password_changed", { role: "director" });
+      await recordAudit("password_changed", { role: "director", credential_mode: result.mode || "supabase" });
+      await loadAll(true);
       toast("Contraseña actualizada");
       render();
       return;
     }
 
-    const teacher = state.teachers.find(
+    const teacher = activeTeacherUsers().find(
       (x) => (x.email || "").toLowerCase() === (sessionUser.email || "").toLowerCase()
     );
     if (!teacher) return toast("No se encontró tu cuenta.", "err");
@@ -2946,6 +3886,9 @@ document.addEventListener("click", async (ev) => {
     const bimestre = state.config.bimestre || "I BIMESTRE";
     const finalStatus = $("tr_final_status")?.value || "";
 
+    const tutorComment = limitTutorComment($("tr_comment")?.value || "");
+    if ($("tr_comment")) $("tr_comment").value = tutorComment;
+
     const payload = {
       student_id: String(studentId),
       grade,
@@ -2962,7 +3905,7 @@ document.addEventListener("click", async (ev) => {
       tard_just: Number($("tr_tj")?.value || 0),
       tard_injust: Number($("tr_ti")?.value || 0),
 
-      comment: $("tr_comment")?.value || "",
+      comment: tutorComment,
       final_status: finalStatus,
 
       updated_by: sessionUser.email,
@@ -3139,7 +4082,7 @@ document.addEventListener("click", async (ev) => {
   /* Eliminar docente */
   if (t?.dataset?.delTeacher) {
     const id = t.dataset.delTeacher;
-    const teacher = state.teachers.find((x) => String(x.id) === String(id));
+    const teacher = activeTeacherUsers().find((x) => String(x.id) === String(id));
     const res = await sb.from("users").delete().eq("id", id);
     if (res.error) return toast(res.error.message, "err");
     await recordAudit("teacher_deleted", { email: teacher?.email || id });
@@ -3151,7 +4094,7 @@ document.addEventListener("click", async (ev) => {
 
   if (t?.dataset?.resetPassword) {
     const id = t.dataset.resetPassword;
-    const teacher = state.teachers.find((x) => String(x.id) === String(id));
+    const teacher = activeTeacherUsers().find((x) => String(x.id) === String(id));
     if (!teacher) return toast("Docente no encontrado.", "err");
 
     const tempPassword = randomToken(12);
@@ -3176,7 +4119,7 @@ document.addEventListener("click", async (ev) => {
 
   if (t?.dataset?.toggleTeacher) {
     const id = t.dataset.toggleTeacher;
-    const teacher = state.teachers.find((x) => String(x.id) === String(id));
+    const teacher = activeTeacherUsers().find((x) => String(x.id) === String(id));
     if (!teacher) return toast("Docente no encontrado.", "err");
 
     const nextStatus = isTeacherBlocked(teacher) ? "active" : "blocked";
@@ -3201,7 +4144,7 @@ document.addEventListener("click", async (ev) => {
   /* Agregar asignación */
   if (t?.dataset?.addAssign) {
     const teacherId = t.dataset.addAssign;
-    const teacher = state.teachers.find((x) => String(x.id) === String(teacherId));
+    const teacher = activeTeacherUsers().find((x) => String(x.id) === String(teacherId));
     if (!teacher) return toast("Docente no encontrado", "err");
 
     const c = $(`asg_course_${teacherId}`)?.value;
@@ -3234,7 +4177,7 @@ document.addEventListener("click", async (ev) => {
     const teacherId = t.dataset.delAssign;
     const idx = Number(t.dataset.assignIdx);
 
-    const teacher = state.teachers.find((x) => String(x.id) === String(teacherId));
+    const teacher = activeTeacherUsers().find((x) => String(x.id) === String(teacherId));
     if (!teacher) return toast("Docente no encontrado", "err");
 
     const assigns = Array.isArray(teacher.assignments) ? [...teacher.assignments] : [];
@@ -3288,7 +4231,9 @@ document.addEventListener("click", async (ev) => {
 
     // 2) COMPETENCY DESC
     const descRows = comps.map((_, idx) => {
-      const desc = $(`cd_${studentId}_${idx}`)?.value ?? "";
+      const descEl = $(`cd_${studentId}_${idx}`);
+      const desc = limitCommentText(descEl?.value ?? "");
+      if (descEl) descEl.value = desc;
       return {
         student_id: String(studentId),
         grade,
@@ -3313,6 +4258,71 @@ document.addEventListener("click", async (ev) => {
     return;
   }
 
+  /* Guardar libreta editada (Directora) */
+  if (t?.id === "saveDirectorLibreta") {
+    if (sessionUser.role !== "director") return toast("Solo directora.", "err");
+
+    const studentId = String(state.editorStudentId || $("dirEditStudent")?.value || "");
+    const grade = state.grade;
+    const course = normalizeCourse(state.editorCourse || $("dirEditCourse")?.value || "");
+    const bimestre = state.editorBimestre || $("dirEditBim")?.value || state.config.bimestre || "I BIMESTRE";
+    if (!studentId || !course) return toast("Selecciona alumno y curso.", "err");
+
+    const comps = competenciasPorCurso(course, grade);
+    if (!comps.length) return toast("Este curso no tiene competencias configuradas.", "err");
+
+    const markRows = comps.map((_, idx) => {
+      const id = makeMarkId(studentId, grade, course, bimestre, idx);
+      return {
+        id,
+        studentId,
+        grade,
+        course,
+        bimestre,
+        compIndex: Number(idx),
+        nl: $(`dir_mk_${idx}`)?.value ?? "",
+        updatedBy: sessionUser.email,
+        at: new Date().toISOString(),
+      };
+    });
+
+    const upMarks = await sb.from("marks").upsert(markRows, { onConflict: "id" });
+    if (upMarks.error) return toast(upMarks.error.message, "err");
+
+    const descRows = comps.map((_, idx) => {
+      const descEl = $(`dir_cd_${idx}`);
+      const desc = limitCommentText(descEl?.value ?? "");
+      if (descEl) descEl.value = desc;
+      return {
+        student_id: studentId,
+        grade,
+        course,
+        bimestre,
+        comp_index: Number(idx),
+        desc,
+        updated_by: sessionUser.email,
+        at: new Date().toISOString(),
+      };
+    });
+
+    const upDesc = await sb
+      .from("competency_desc")
+      .upsert(descRows, { onConflict: "student_id,grade,course,bimestre,comp_index" });
+    if (upDesc.error) return toast(upDesc.error.message, "err");
+
+    await recordAudit("director_report_card_edited", {
+      student_id: studentId,
+      grade,
+      course,
+      bimestre,
+      competencies: comps.length,
+    });
+    await loadAll(true);
+    toast("Libreta actualizada");
+    render();
+    return;
+  }
+
   /* Guardar tutor (Directora) */
   if (t?.id === "saveTutorBtn") {
     if (sessionUser.role !== "director") return toast("Solo directora.", "err");
@@ -3320,7 +4330,7 @@ document.addEventListener("click", async (ev) => {
     const teacherId = $("tutorTeacherSel")?.value;
     if (!teacherId) return toast("Selecciona un docente.", "err");
 
-    const teacher = state.teachers.find((x) => String(x.id) === String(teacherId));
+    const teacher = activeTeacherUsers().find((x) => String(x.id) === String(teacherId));
     if (!teacher) return toast("Docente no encontrado.", "err");
 
     const payload = {

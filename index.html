@@ -92,6 +92,24 @@
           <p id="login-error" class="hidden text-rose-600 font-black text-sm italic text-center"></p>
         </form>
 
+        <div id="director-setup-panel" class="hidden mt-5 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+          <p class="text-blue-700 font-black tracking-[0.18em] uppercase text-[10px]">Primer acceso</p>
+          <h2 class="mt-1 text-slate-900 font-black text-base">Crear cuenta de Dirección</h2>
+          <p class="mt-1 text-slate-600 font-bold text-xs leading-relaxed">
+            No hay una cuenta directiva segura configurada. Crea una contraseña propia para iniciar el sistema.
+          </p>
+          <div class="mt-3 space-y-2">
+            <input id="director-name" class="w-full p-3 rounded-2xl bg-white border border-blue-100 font-bold" placeholder="Nombre de la directora" />
+            <input id="director-email" type="email" autocomplete="username" class="w-full p-3 rounded-2xl bg-white border border-blue-100 font-bold" placeholder="correo de Dirección" />
+            <input id="director-pass" type="password" autocomplete="new-password" class="w-full p-3 rounded-2xl bg-white border border-blue-100 font-bold" placeholder="Contraseña segura" />
+            <input id="director-pass2" type="password" autocomplete="new-password" class="w-full p-3 rounded-2xl bg-white border border-blue-100 font-bold" placeholder="Confirmar contraseña" />
+            <button id="director-setup-btn" type="button" class="w-full py-3 rounded-2xl bg-slate-900 text-white font-black tracking-widest uppercase text-xs">
+              Crear acceso
+            </button>
+            <p id="director-setup-msg" class="hidden text-xs font-black text-center"></p>
+          </div>
+        </div>
+
         <div class="mt-6 text-center">
           <p class="text-slate-400 font-bold text-[11px] italic">
             “Formando líderes con valores”
