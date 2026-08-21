@@ -350,6 +350,18 @@ function normalizeCourse(c) {
   return c;
 }
 
+function normalizeCourseForGrade(course, grade) {
+  const normalized = normalizeCourse(course);
+  const g = grade || "";
+  if (normalized === "ARTE" && !g.includes("Inicial")) return "ARTE Y CULTURA";
+  if (normalized === "ARTE Y CULTURA" && g.includes("Inicial")) return "ARTE";
+  return normalized;
+}
+
+function sameCourseForGrade(a, b, grade) {
+  return normalizeCourseForGrade(a, grade) === normalizeCourseForGrade(b, grade);
+}
+
 function competenciasKeyPorGrado(grado) {
   const g = grado || "";
   if (g.includes("3 Años")) return "inicial3";
@@ -369,7 +381,7 @@ function competenciasPorCurso(course, grado) {
     secundaria: COMP_SECUNDARIA,
   };
   const selected = maps[key] || COMP_SECUNDARIA;
-  const normalized = normalizeCourse(course);
+  const normalized = normalizeCourseForGrade(course, grado);
   return selected[normalized] || selected[course] || COMP[normalized] || COMP[course] || [];
 }
 
@@ -1149,7 +1161,7 @@ function getAttendanceStatus(dateISO, grade, course, studentId) {
     (a) =>
       String(a.date) === String(dateISO) &&
       (a.grade || "") === grade &&
-      normalizeCourse(a.course || "") === normalizeCourse(course || "") &&
+      sameCourseForGrade(a.course || "", course || "", grade) &&
       String(a.student_id) === String(studentId)
   );
   return row?.status || "P";
@@ -1158,20 +1170,27 @@ function getAttendanceStatus(dateISO, grade, course, studentId) {
 /* ===== Competency Desc helpers ===== */
 function findCompDesc(studentId, grade, course, bimestre, compIndex) {
   const c1 = (course || "").trim();
-  const c2 = normalizeCourse(c1);
+  const c2 = normalizeCourseForGrade(c1, grade);
 
-  const row = (state.compDesc || []).find((d) => {
-    const dc = (d.course || "").trim();
-    return (
-      String(d.student_id) === String(studentId) &&
-      (d.grade || "") === grade &&
-      (d.bimestre || "") === bimestre &&
-      Number(d.comp_index) === Number(compIndex) &&
-      (dc === c1 || normalizeCourse(dc) === c2)
-    );
-  });
+  const rows = (state.compDesc || [])
+    .filter((d) => {
+      const dc = (d.course || "").trim();
+      return (
+        String(d.student_id) === String(studentId) &&
+        (d.grade || "") === grade &&
+        (d.bimestre || "") === bimestre &&
+        Number(d.comp_index) === Number(compIndex) &&
+        (dc === c1 || normalizeCourseForGrade(dc, grade) === c2)
+      );
+    })
+    .sort((a, b) => {
+      const aExact = normalizeCourseForGrade(a.course || "", grade) === c2 ? 1 : 0;
+      const bExact = normalizeCourseForGrade(b.course || "", grade) === c2 ? 1 : 0;
+      if (aExact !== bExact) return bExact - aExact;
+      return new Date(b.at || b.updated_at || 0) - new Date(a.at || a.updated_at || 0);
+    });
 
-  return row?.desc || "";
+  return rows[0]?.desc || "";
 }
 
 /* Cargar todo
@@ -1947,17 +1966,28 @@ function markLevel(mark) {
   return String(mark?.nl || mark?.level || "").trim().toUpperCase();
 }
 
-function getMarkValue(studentId, grade, course, bimestre, compIndex) {
-  const normalized = normalizeCourse(course);
-  const row = (state.marks || []).find(
-    (m) =>
+function findMarkRow(studentId, grade, course, bimestre, compIndex) {
+  const normalized = normalizeCourseForGrade(course, grade);
+  const canonicalId = makeMarkId(studentId, grade, normalized, bimestre, compIndex);
+  return (state.marks || [])
+    .filter(
+      (m) =>
       String(markStudentId(m)) === String(studentId) &&
       (m.grade || "") === grade &&
-      normalizeCourse(m.course || "") === normalized &&
+      normalizeCourseForGrade(m.course || "", grade) === normalized &&
       (m.bimestre || "") === bimestre &&
       Number(markCompIndex(m)) === Number(compIndex)
-  );
-  return markLevel(row);
+    )
+    .sort((a, b) => {
+      const aExact = a.id === canonicalId ? 1 : 0;
+      const bExact = b.id === canonicalId ? 1 : 0;
+      if (aExact !== bExact) return bExact - aExact;
+      return new Date(b.at || b.updated_at || 0) - new Date(a.at || a.updated_at || 0);
+    })[0] || null;
+}
+
+function getMarkValue(studentId, grade, course, bimestre, compIndex) {
+  return markLevel(findMarkRow(studentId, grade, course, bimestre, compIndex));
 }
 
 function levelFromAverage(avg) {
@@ -1972,8 +2002,9 @@ function uniqueReportTargets(assignments) {
   const map = new Map();
   (assignments || []).forEach((a) => {
     if (!a?.grade || !a?.course) return;
-    const key = `${a.grade}|${normalizeCourse(a.course)}`;
-    if (!map.has(key)) map.set(key, { grade: a.grade, course: normalizeCourse(a.course) });
+    const course = normalizeCourseForGrade(a.course, a.grade);
+    const key = `${a.grade}|${course}`;
+    if (!map.has(key)) map.set(key, { grade: a.grade, course });
   });
   return Array.from(map.values());
 }
@@ -2014,7 +2045,7 @@ function buildCourseReport(grade, course, bimestre) {
   const courseAverage = evaluatedStudents ? averageSum / evaluatedStudents : null;
   return {
     grade,
-    course: normalizeCourse(course),
+    course: normalizeCourseForGrade(course, grade),
     bimestre,
     competencies: comps.length,
     totalStudents: students.length,
@@ -2217,15 +2248,15 @@ function renderReportes() {
   let headerExtra = "";
 
   if (sessionUser.role === "director") {
-    const courses = cursosPorGrado(state.grade).map(normalizeCourse);
+    const courses = cursosPorGrado(state.grade).map((c) => normalizeCourseForGrade(c, state.grade));
     const selectedCourse = state.reportCourse || "";
     targets = courses
-      .filter((course) => !selectedCourse || normalizeCourse(course) === normalizeCourse(selectedCourse))
+      .filter((course) => !selectedCourse || sameCourseForGrade(course, selectedCourse, state.grade))
       .map((course) => ({ grade: state.grade, course }));
     headerExtra = `
       <select id="reportCourseSel" class="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 font-black">
         <option value="">Todos los cursos</option>
-        ${courses.map((c) => `<option value="${escapeHtml(c)}" ${normalizeCourse(c) === normalizeCourse(selectedCourse) ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+        ${courses.map((c) => `<option value="${escapeHtml(c)}" ${sameCourseForGrade(c, selectedCourse, state.grade) ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
       </select>
     `;
   } else {
@@ -2309,7 +2340,7 @@ function renderReportes() {
 function buildStudentCoursePerformance(student, bimestre) {
   const grade = student?.grado || state.grade;
   return cursosPorGrado(grade).map((course) => {
-    const normalized = normalizeCourse(course);
+    const normalized = normalizeCourseForGrade(course, grade);
     const comps = competenciasPorCurso(normalized, grade);
     const byBim = BIMESTRES.map((bim) => {
       const values = comps
@@ -2885,7 +2916,7 @@ function renderNotas() {
     `;
   }
 
-  const course = state.teacherCourse;
+  const course = normalizeCourseForGrade(state.teacherCourse, state.grade);
   const comps = competenciasPorCurso(course, state.grade);
   const alumnos = state.students.filter((s) => (s.grado || "") === state.grade);
   const bim = state.config.bimestre || "I BIMESTRE";
@@ -2934,8 +2965,7 @@ function renderNotas() {
                         bim,
                         idx
                       );
-                      const saved = state.marks.find((m) => m.id === id);
-                      const val = saved?.nl || "";
+                      const val = getMarkValue(st.id, state.grade, course, bim, idx);
 
                       const dsc = limitCommentText(findCompDesc(st.id, state.grade, course, bim, idx));
 
@@ -2988,7 +3018,7 @@ function renderDirectorEditor() {
   }
 
   const alumnos = state.students.filter((s) => (s.grado || "") === state.grade);
-  const courses = cursosPorGrado(state.grade).map(normalizeCourse);
+  const courses = cursosPorGrado(state.grade).map((c) => normalizeCourseForGrade(c, state.grade));
   if (!alumnos.length || !courses.length) {
     return `<div class="empty-state">No hay alumnos o cursos disponibles para este grado.</div>`;
   }
@@ -2996,13 +3026,13 @@ function renderDirectorEditor() {
   if (!alumnos.some((a) => String(a.id) === String(state.editorStudentId))) {
     state.editorStudentId = String(alumnos[0].id);
   }
-  if (!courses.some((c) => normalizeCourse(c) === normalizeCourse(state.editorCourse))) {
+  if (!courses.some((c) => sameCourseForGrade(c, state.editorCourse, state.grade))) {
     state.editorCourse = courses[0];
   }
   if (!state.editorBimestre) state.editorBimestre = state.config.bimestre || "I BIMESTRE";
 
   const studentId = state.editorStudentId;
-  const course = normalizeCourse(state.editorCourse);
+  const course = normalizeCourseForGrade(state.editorCourse, state.grade);
   const bimestre = state.editorBimestre;
   const comps = competenciasPorCurso(course, state.grade);
   const selectedStudent = alumnos.find((a) => String(a.id) === String(studentId));
@@ -3025,7 +3055,7 @@ function renderDirectorEditor() {
           <label>
             <span>Curso</span>
             <select id="dirEditCourse">
-              ${courses.map((c) => `<option value="${escapeHtml(c)}" ${normalizeCourse(c) === course ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+              ${courses.map((c) => `<option value="${escapeHtml(c)}" ${sameCourseForGrade(c, course, state.grade) ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
             </select>
           </label>
           <label>
@@ -3726,7 +3756,7 @@ function renderReport() {
       (m) =>
         String(markStudentId(m)) === String(st.id) &&
         (m.grade || "") === grade &&
-        normalizeCourse(m.course || "") === normalizeCourse(course || "") &&
+        sameCourseForGrade(m.course || "", course || "", grade) &&
         (m.bimestre || "") === bim &&
         Number(markCompIndex(m)) === Number(compIndex)
     );
@@ -4268,8 +4298,8 @@ document.addEventListener("click", async (ev) => {
     const dateISO = $("attDate")?.value;
     if (!dateISO) return toast("Selecciona fecha.", "err");
 
-    const course = normalizeCourse(state.teacherCourse);
     const grade = state.grade;
+    const course = normalizeCourseForGrade(state.teacherCourse, grade);
     const alumnos = state.students.filter((s) => (s.grado || "") === grade);
 
     const rows = alumnos.map((st) => ({
@@ -4482,7 +4512,7 @@ document.addEventListener("click", async (ev) => {
 
     const assigns = Array.isArray(teacher.assignments) ? [...teacher.assignments] : [];
     const dup = assigns.some(
-      (a) => (a.grade || "") === g && normalizeCourse(a.course || "") === normalizeCourse(c)
+      (a) => (a.grade || "") === g && sameCourseForGrade(a.course || "", c, g)
     );
     if (dup) return toast("Asignación duplicada", "err");
 
@@ -4534,7 +4564,7 @@ document.addEventListener("click", async (ev) => {
 
     const studentId = t.dataset.saveSt;
     const grade = state.grade;
-    const course = normalizeCourse(state.teacherCourse);
+    const course = normalizeCourseForGrade(state.teacherCourse, grade);
     const bimestre = state.config.bimestre || "I BIMESTRE";
     const comps = competenciasPorCurso(course, grade);
 
@@ -4593,7 +4623,7 @@ document.addEventListener("click", async (ev) => {
 
     const studentId = String(state.editorStudentId || $("dirEditStudent")?.value || "");
     const grade = state.grade;
-    const course = normalizeCourse(state.editorCourse || $("dirEditCourse")?.value || "");
+    const course = normalizeCourseForGrade(state.editorCourse || $("dirEditCourse")?.value || "", grade);
     const bimestre = state.editorBimestre || $("dirEditBim")?.value || state.config.bimestre || "I BIMESTRE";
     if (!studentId || !course) return toast("Selecciona alumno y curso.", "err");
 
