@@ -328,24 +328,52 @@ function cursosPorGrado(grado) {
   return [...CURSOS_SECUNDARIA];
 }
 
+function fixMojibake(value) {
+  return String(value || "")
+    .replace(/Ã|Ã�/g, "Á")
+    .replace(/Ã‰/g, "É")
+    .replace(/Ã/g, "Í")
+    .replace(/Ã“/g, "Ó")
+    .replace(/Ãš/g, "Ú")
+    .replace(/Ã‘/g, "Ñ")
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã­/g, "í")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã±/g, "ñ");
+}
+
+function textKey(value) {
+  return fixMojibake(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9Ñ\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
 function normalizeCourse(c) {
-  const u = (c || "").toUpperCase();
+  const u = textKey(c);
+  if (/\b(DPCC|D P C C)\b/.test(u) || u.includes("DESARROLLO PERSONAL") || u.includes("CIUDADANIA") || u.includes("CIVICA")) {
+    return "DESARROLLO PERSONAL, CIUDADANÍA Y CÍVICA";
+  }
+  if (/\b(EPT|E P T)\b/.test(u) || u.includes("EDUCACION PARA EL TRABAJO") || u.includes("PARA EL TRABAJO") || u.includes("EMPRENDIMIENTO")) {
+    return "EDUCACIÓN PARA EL TRABAJO";
+  }
   if (u.includes("TRANSVERS")) return "COMPETENCIAS TRANSVERSALES";
   if (u.includes("COMPUT")) return "COMPUTACIÓN";
   if (u.includes("MATEM")) return "MATEMÁTICA";
+  if (u.includes("PERSONAL SOCIAL")) return "PERSONAL SOCIAL";
   if (u.includes("SOCIALES")) return "CIENCIAS SOCIALES";
   if (u.includes("CIENCIA")) return "CIENCIA Y TECNOLOGÍA";
   if (u.includes("COMUNIC")) return "COMUNICACIÓN";
-  if (u === "ARTE" || (u.includes("ARTE") && !u.includes("CULTURA"))) return "ARTE";
-  if (u.includes("ARTE")) return "ARTE Y CULTURA";
+  if (u.includes("ARTE") && u.includes("CULTURA")) return "ARTE Y CULTURA";
+  if (u === "ARTE" || /\bARTE\b/.test(u)) return "ARTE";
   if (u.includes("INGL")) return "INGLÉS";
   if (u.includes("RELIG")) return "EDUCACIÓN RELIGIOSA";
-  if (u.includes("FÍSICA") || u.includes("FISICA")) return "EDUCACIÓN FÍSICA";
-  if (u.includes("PERSONAL SOCIAL")) return "PERSONAL SOCIAL";
-  if (u.includes("DESARROLLO PERSONAL") || u.includes("CIUDADAN") || u.includes("CÍVICA") || u.includes("CIVICA") || u.includes("DPCC")) {
-    return "DESARROLLO PERSONAL, CIUDADANÍA Y CÍVICA";
-  }
-  if (u.includes("EPT") || u.includes("TRABAJO")) return "EDUCACIÓN PARA EL TRABAJO";
+  if (u.includes("FISICA")) return "EDUCACIÓN FÍSICA";
   if (u.includes("PSICOMOTR")) return "PSICOMOTRIZ";
   return c;
 }
@@ -359,7 +387,9 @@ function normalizeCourseForGrade(course, grade) {
 }
 
 function sameCourseForGrade(a, b, grade) {
-  return normalizeCourseForGrade(a, grade) === normalizeCourseForGrade(b, grade);
+  const courseA = normalizeCourseForGrade(a, grade);
+  const courseB = normalizeCourseForGrade(b, grade);
+  return courseA === courseB || textKey(courseA) === textKey(courseB);
 }
 
 function competenciasKeyPorGrado(grado) {
@@ -419,6 +449,7 @@ let state = {
   reportCardBimestre: "",
   studentReportStudentId: "",
   studentReportBimestre: "",
+  tutoriaStudentId: "",
 
   /* Tutoría + Asistencia */
   homeroomTutors: [],
@@ -1107,6 +1138,74 @@ function finalStatusMeaning(code) {
   }[String(code || "").trim().toUpperCase()] || "";
 }
 
+function levelOptionsHtml(selected = "") {
+  const current = String(selected || "").trim().toUpperCase();
+  return ["", "AD", "A", "B", "C"]
+    .map((x) => `<option value="${x}" ${x === current ? "selected" : ""}>${x || "Sin definir"}</option>`)
+    .join("");
+}
+
+function finalStatusOptionsHtml(selected = "") {
+  const current = String(selected || "").trim().toUpperCase();
+  return ["", "PRO", "RR", "PER"]
+    .map((x) => `<option value="${x}" ${x === current ? "selected" : ""}>${x || "Sin definir"}</option>`)
+    .join("");
+}
+
+function formNumberValue(id) {
+  const n = Number($(id)?.value || 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function buildTutorReportPayloadFromForm(prefix, studentId, grade, bimestre, actorEmail) {
+  const commentEl = $(`${prefix}_comment`);
+  const tutorComment = limitTutorComment(commentEl?.value || "");
+  if (commentEl) commentEl.value = tutorComment;
+
+  return {
+    student_id: String(studentId),
+    grade,
+    year: SCHOOL_YEAR,
+    bimestre,
+
+    convivencia_valores: $(`${prefix}_valores`)?.value || "",
+    convivencia_normas: $(`${prefix}_normas`)?.value || "",
+    padres_escuela: $(`${prefix}_padres_escuela`)?.value || "",
+    padres_reuniones: $(`${prefix}_padres_reuniones`)?.value || "",
+
+    inasist_just: formNumberValue(`${prefix}_ij`),
+    inasist_injust: formNumberValue(`${prefix}_ii`),
+    tard_just: formNumberValue(`${prefix}_tj`),
+    tard_injust: formNumberValue(`${prefix}_ti`),
+
+    comment: tutorComment,
+    final_status: $(`${prefix}_final_status`)?.value || "",
+
+    updated_by: actorEmail,
+    at: new Date().toISOString(),
+  };
+}
+
+async function persistTutorReportPayload(payload) {
+  saveLocalTutorFinalStatus(
+    payload.student_id,
+    payload.grade,
+    payload.bimestre,
+    payload.final_status || ""
+  );
+
+  let up = await sb.from("tutor_reports").upsert([payload], {
+    onConflict: "student_id,grade,year,bimestre",
+  });
+  if (up.error && isSchemaColumnError(up.error)) {
+    const { final_status, ...compatiblePayload } = payload;
+    up = await sb.from("tutor_reports").upsert([compatiblePayload], {
+      onConflict: "student_id,grade,year,bimestre",
+    });
+  }
+  return up;
+}
+
 function teacherVisibleGrades(user = sessionUser) {
   if (!user || user.role !== "teacher") return [];
   const grades = new Set();
@@ -1180,7 +1279,7 @@ function findCompDesc(studentId, grade, course, bimestre, compIndex) {
         (d.grade || "") === grade &&
         (d.bimestre || "") === bimestre &&
         Number(d.comp_index) === Number(compIndex) &&
-        (dc === c1 || normalizeCourseForGrade(dc, grade) === c2)
+        (dc === c1 || sameCourseForGrade(dc, c2, grade))
       );
     })
     .sort((a, b) => {
@@ -1972,11 +2071,11 @@ function findMarkRow(studentId, grade, course, bimestre, compIndex) {
   return (state.marks || [])
     .filter(
       (m) =>
-      String(markStudentId(m)) === String(studentId) &&
-      (m.grade || "") === grade &&
-      normalizeCourseForGrade(m.course || "", grade) === normalized &&
-      (m.bimestre || "") === bimestre &&
-      Number(markCompIndex(m)) === Number(compIndex)
+        String(markStudentId(m)) === String(studentId) &&
+        (m.grade || "") === grade &&
+        sameCourseForGrade(m.course || "", normalized, grade) &&
+        (m.bimestre || "") === bimestre &&
+        Number(markCompIndex(m)) === Number(compIndex)
     )
     .sort((a, b) => {
       const aExact = a.id === canonicalId ? 1 : 0;
@@ -3036,6 +3135,11 @@ function renderDirectorEditor() {
   const bimestre = state.editorBimestre;
   const comps = competenciasPorCurso(course, state.grade);
   const selectedStudent = alumnos.find((a) => String(a.id) === String(studentId));
+  const directorTutorReport = getTutorReport(studentId, state.grade, bimestre) || {};
+  const directorFinalStatus =
+    directorTutorReport.final_status ||
+    getLocalTutorFinalStatus(studentId, state.grade, bimestre) ||
+    "";
 
   return `
     <div class="libreta-editor-page">
@@ -3043,7 +3147,7 @@ function renderDirectorEditor() {
         <div>
           <p class="report-eyebrow">Edición directa</p>
           <h2>Corregir libreta</h2>
-          <p>Selecciona alumno, curso y bimestre. Los cambios se guardan en notas y conclusiones descriptivas.</p>
+          <p>Selecciona alumno, curso y bimestre. Los cambios se guardan en notas, conclusiones descriptivas y tutoría.</p>
         </div>
         <div class="libreta-editor-controls">
           <label>
@@ -3118,6 +3222,64 @@ function renderDirectorEditor() {
                 : `<div class="empty-state">Este curso no tiene competencias configuradas.</div>`
             }
           </div>
+
+          <section class="director-tutoria-panel">
+            <div class="director-tutoria-head">
+              <div>
+                <p class="report-eyebrow">Tutoría</p>
+                <h3>Convivencia, asistencia y cierre</h3>
+              </div>
+              <span>${escapeHtml(bimestre)}</span>
+            </div>
+
+            <div class="director-tutoria-grid">
+              <label>
+                <span>Valores institucionales</span>
+                <select id="dir_tr_valores">${levelOptionsHtml(directorTutorReport.convivencia_valores)}</select>
+              </label>
+              <label>
+                <span>Normas de convivencia</span>
+                <select id="dir_tr_normas">${levelOptionsHtml(directorTutorReport.convivencia_normas)}</select>
+              </label>
+              <label>
+                <span>Escuela para padres</span>
+                <select id="dir_tr_padres_escuela">${levelOptionsHtml(directorTutorReport.padres_escuela)}</select>
+              </label>
+              <label>
+                <span>Reuniones programadas</span>
+                <select id="dir_tr_padres_reuniones">${levelOptionsHtml(directorTutorReport.padres_reuniones)}</select>
+              </label>
+            </div>
+
+            <div class="director-attendance-grid">
+              <label>
+                <span>Inasist. Just.</span>
+                <input id="dir_tr_ij" type="number" min="0" value="${escapeHtml(directorTutorReport.inasist_just ?? 0)}">
+              </label>
+              <label>
+                <span>Inasist. Injust.</span>
+                <input id="dir_tr_ii" type="number" min="0" value="${escapeHtml(directorTutorReport.inasist_injust ?? 0)}">
+              </label>
+              <label>
+                <span>Tard. Just.</span>
+                <input id="dir_tr_tj" type="number" min="0" value="${escapeHtml(directorTutorReport.tard_just ?? 0)}">
+              </label>
+              <label>
+                <span>Tard. Injust.</span>
+                <input id="dir_tr_ti" type="number" min="0" value="${escapeHtml(directorTutorReport.tard_injust ?? 0)}">
+              </label>
+              <label>
+                <span>Situación final</span>
+                <select id="dir_tr_final_status">${finalStatusOptionsHtml(directorFinalStatus)}</select>
+              </label>
+            </div>
+
+            <label class="director-comment-field">
+              <span>Comentario del tutor(a)</span>
+              <textarea id="dir_tr_comment" maxlength="${MAX_COMMENT_CHARS}" class="auto-correct-text" placeholder="Comentario de tutoría...">${escapeHtml(limitTutorComment(directorTutorReport.comment || ""))}</textarea>
+              <small>Máximo ${MAX_COMMENT_CHARS} caracteres.</small>
+            </label>
+          </section>
         </section>
 
         <aside class="libreta-editor-aside">
@@ -3135,7 +3297,7 @@ function renderDirectorEditor() {
           </div>
 
           <div class="editor-save-panel">
-            <p>La autocorrección se aplica al salir del texto y también al guardar.</p>
+            <p>La autocorrección se aplica al salir del texto y también al guardar. Incluye el bloque de tutoría del bimestre seleccionado.</p>
             <button id="saveDirectorLibreta" class="no-print">
               Guardar cambios
             </button>
@@ -3239,6 +3401,15 @@ function renderTutoria() {
   }
 
   const b = state.config.bimestre || "I BIMESTRE";
+  if (!alumnos.some((a) => String(a.id) === String(state.tutoriaStudentId))) {
+    state.tutoriaStudentId = String(alumnos[0].id);
+  }
+  const tutorStudentId = state.tutoriaStudentId;
+  const tutorReport = getTutorReport(tutorStudentId, state.grade, b) || {};
+  const tutorFinalStatus =
+    tutorReport.final_status ||
+    getLocalTutorFinalStatus(tutorStudentId, state.grade, b) ||
+    "";
 
   return `
     <div class="bg-white border border-slate-100 shadow-2xl rounded-[2.5rem] p-6 lg:p-8">
@@ -3254,7 +3425,7 @@ function renderTutoria() {
           <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Alumno</div>
           <select id="tutStudentSel" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black">
             ${alumnos
-              .map((a) => `<option value="${a.id}">${escapeHtml(a.nombre)}</option>`)
+              .map((a) => `<option value="${a.id}" ${String(a.id) === String(tutorStudentId) ? "selected" : ""}>${escapeHtml(a.nombre)}</option>`)
               .join("")}
           </select>
 
@@ -3262,36 +3433,28 @@ function renderTutoria() {
             <div>
               <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Convivencia - Valores</div>
               <select id="tr_valores" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black">
-                ${["", "AD", "A", "B", "C"]
-                  .map((x) => `<option value="${x}">${x}</option>`)
-                  .join("")}
+                ${levelOptionsHtml(tutorReport.convivencia_valores)}
               </select>
             </div>
 
             <div>
               <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Convivencia - Normas</div>
               <select id="tr_normas" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black">
-                ${["", "AD", "A", "B", "C"]
-                  .map((x) => `<option value="${x}">${x}</option>`)
-                  .join("")}
+                ${levelOptionsHtml(tutorReport.convivencia_normas)}
               </select>
             </div>
 
             <div>
               <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Apoyo padres - Escuela</div>
               <select id="tr_padres_escuela" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black">
-                ${["", "AD", "A", "B", "C"]
-                  .map((x) => `<option value="${x}">${x}</option>`)
-                  .join("")}
+                ${levelOptionsHtml(tutorReport.padres_escuela)}
               </select>
             </div>
 
             <div>
               <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Apoyo padres - Reuniones</div>
               <select id="tr_padres_reuniones" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black">
-                ${["", "AD", "A", "B", "C"]
-                  .map((x) => `<option value="${x}">${x}</option>`)
-                  .join("")}
+                ${levelOptionsHtml(tutorReport.padres_reuniones)}
               </select>
             </div>
           </div>
@@ -3299,25 +3462,25 @@ function renderTutoria() {
           <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Inasist. Just.</div>
-              <input id="tr_ij" type="number" min="0" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black" value="0">
+              <input id="tr_ij" type="number" min="0" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black" value="${escapeHtml(tutorReport.inasist_just ?? 0)}">
             </div>
             <div>
               <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Inasist. Injust.</div>
-              <input id="tr_ii" type="number" min="0" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black" value="0">
+              <input id="tr_ii" type="number" min="0" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black" value="${escapeHtml(tutorReport.inasist_injust ?? 0)}">
             </div>
             <div>
               <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Tard. Just.</div>
-              <input id="tr_tj" type="number" min="0" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black" value="0">
+              <input id="tr_tj" type="number" min="0" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black" value="${escapeHtml(tutorReport.tard_just ?? 0)}">
             </div>
             <div>
               <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Tard. Injust.</div>
-              <input id="tr_ti" type="number" min="0" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black" value="0">
+              <input id="tr_ti" type="number" min="0" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black" value="${escapeHtml(tutorReport.tard_injust ?? 0)}">
             </div>
           </div>
 
           <div class="mt-4">
             <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Comentario del tutor</div>
-            <textarea id="tr_comment" maxlength="${MAX_COMMENT_CHARS}" class="auto-correct-text mt-2 w-full p-4 rounded-2xl bg-white border border-slate-200 font-bold min-h-[110px]" placeholder="Escribe el comentario..."></textarea>
+            <textarea id="tr_comment" maxlength="${MAX_COMMENT_CHARS}" class="auto-correct-text mt-2 w-full p-4 rounded-2xl bg-white border border-slate-200 font-bold min-h-[110px]" placeholder="Escribe el comentario...">${escapeHtml(limitTutorComment(tutorReport.comment || ""))}</textarea>
             <p class="mt-1 text-slate-400 font-bold text-xs">Máximo ${MAX_COMMENT_CHARS} caracteres.</p>
           </div>
 
@@ -3325,7 +3488,7 @@ function renderTutoria() {
             <div>
               <div class="text-slate-500 font-black text-xs tracking-widest uppercase">Situación final</div>
               <select id="tr_final_status" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-black">
-                ${["", "PRO", "RR", "PER"].map((x) => `<option value="${x}">${x || "Sin definir"}</option>`).join("")}
+                ${finalStatusOptionsHtml(tutorFinalStatus)}
               </select>
             </div>
             <p class="text-slate-500 font-bold text-xs leading-relaxed">
@@ -3585,6 +3748,11 @@ function renderOfficialBottomBox(st, grade) {
       </tr>
     `)
     .join("");
+  const optionalAsset = (src, alt, className) => `
+    <img class="${className}" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"
+      onload="this.dataset.loaded='1'; if(this.nextElementSibling && this.nextElementSibling.classList.contains('official-stamp-fallback')) this.nextElementSibling.remove();"
+      onerror="this.remove()">
+  `;
 
   return `
     <div class="official-bottom-box">
@@ -3713,13 +3881,27 @@ function renderOfficialBottomBox(st, grade) {
       <table class="official-sign-table">
         <tr>
           <td>
-            <div class="official-sign-space"></div>
+            <div class="official-sign-space">
+              <div class="official-sign-assets official-sign-assets-tutor">
+                ${optionalAsset("firma-tutor.png", "Firma del tutor(a)", "official-signature-img official-signature-img-tutor")}
+              </div>
+            </div>
             <div class="official-sign-line"></div>
             <div class="official-sign-name">${escapeHtml(tutorName)}</div>
             <b>TUTOR (A)</b>
           </td>
           <td>
-            <div class="official-sign-space"></div>
+            <div class="official-sign-space">
+              <div class="official-sign-assets official-sign-assets-director">
+                ${optionalAsset("sello-directora.png", "Sello de Dirección", "official-stamp-img")}
+                <div class="official-stamp-fallback">
+                  <span>I.E.P.</span>
+                  <strong>KAROL WOJTYLA</strong>
+                  <span>DIRECCIÓN</span>
+                </div>
+                ${optionalAsset("firma-directora.png", "Firma de la directora", "official-signature-img official-signature-img-director")}
+              </div>
+            </div>
             <div class="official-sign-line"></div>
             <div class="official-sign-name">${escapeHtml(directorName)}</div>
             <b>DIRECTORA</b>
@@ -3751,17 +3933,8 @@ function renderReport() {
   const cursos = cursosPorGrado(grade);
   const fecha = new Date().toLocaleDateString("es-PE");
 
-  const getMark = (course, compIndex, bim) => {
-    const row = state.marks.find(
-      (m) =>
-        String(markStudentId(m)) === String(st.id) &&
-        (m.grade || "") === grade &&
-        sameCourseForGrade(m.course || "", course || "", grade) &&
-        (m.bimestre || "") === bim &&
-        Number(markCompIndex(m)) === Number(compIndex)
-    );
-    return markLevel(row);
-  };
+  const getMark = (course, compIndex, bim) =>
+    getMarkValue(st.id, grade, course, bim, compIndex);
 
   const computeNLA = (course, compIndex) => {
     const order = ["IV BIMESTRE", "III BIMESTRE", "II BIMESTRE", "I BIMESTRE"];
@@ -3780,7 +3953,7 @@ function renderReport() {
 
   const talleres = talleresPorGrado(grade);
   const cursosPrincipales = talleres.length
-    ? cursos.filter((course) => !talleres.includes(normalizeCourse(course)))
+    ? cursos.filter((course) => !talleres.some((t) => sameCourseForGrade(course, t, grade)))
     : cursos;
 
   const renderCourseRows = (courseList) =>
@@ -4011,7 +4184,15 @@ function printCurrentReport() {
   .official-final-legend{ font-size:5.9px; line-height:1.05; padding:1.4px 2.5px 2px; }
   .official-sign-table{ width:82%; margin:5mm auto 0; border-collapse:collapse; table-layout:fixed; font-size:7px; }
   .official-sign-table td{ text-align:center; padding:4px 5mm 1px; border:0; }
-  .official-sign-space{ height:10mm; }
+  .official-sign-space{ height:12mm; position:relative; display:flex; align-items:flex-end; justify-content:center; }
+  .official-sign-assets{ position:relative; width:100%; height:100%; }
+  .official-signature-img{ position:absolute; left:50%; bottom:-.8mm; max-width:76%; max-height:11mm; object-fit:contain; transform:translateX(-50%); }
+  .official-signature-img-director{ left:58%; max-width:58%; max-height:10mm; }
+  .official-stamp-img,
+  .official-stamp-fallback{ position:absolute; left:22%; bottom:0; width:10mm; height:10mm; transform:rotate(-7deg); }
+  .official-stamp-img{ object-fit:contain; }
+  .official-stamp-fallback{ border:.45mm solid #1d4ed8; border-radius:999px; color:#1d4ed8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2mm; font-size:1.05mm; font-weight:900; line-height:1; letter-spacing:.02em; opacity:.92; }
+  .official-stamp-fallback strong{ font-size:1.12mm; }
   .official-sign-line{ border-top:1px solid #000; width:82%; margin:0 auto 2px; }
   .official-sign-name{ font-size:7px; line-height:1.1; min-height:12px; }
   .official-sign-table b{ display:block; margin-top:2px; font-size:7.2px; }
@@ -4088,6 +4269,7 @@ document.addEventListener("change", (ev) => {
     const studentId = ev.target.value;
     const grade = state.grade;
     const b = state.config.bimestre || "I BIMESTRE";
+    state.tutoriaStudentId = String(studentId);
 
     const r = getTutorReport(studentId, grade, b);
 
@@ -4240,48 +4422,18 @@ document.addEventListener("click", async (ev) => {
   if (t?.id === "saveTutorReportBtn") {
     const studentId = $("tutStudentSel")?.value;
     if (!studentId) return toast("Selecciona alumno.", "err");
+    state.tutoriaStudentId = String(studentId);
 
     const grade = state.grade;
     const bimestre = state.config.bimestre || "I BIMESTRE";
-    const finalStatus = $("tr_final_status")?.value || "";
-
-    const tutorComment = limitTutorComment($("tr_comment")?.value || "");
-    if ($("tr_comment")) $("tr_comment").value = tutorComment;
-
-    const payload = {
-      student_id: String(studentId),
+    const payload = buildTutorReportPayloadFromForm(
+      "tr",
+      studentId,
       grade,
-      year: SCHOOL_YEAR,
       bimestre,
-
-      convivencia_valores: $("tr_valores")?.value || "",
-      convivencia_normas: $("tr_normas")?.value || "",
-      padres_escuela: $("tr_padres_escuela")?.value || "",
-      padres_reuniones: $("tr_padres_reuniones")?.value || "",
-
-      inasist_just: Number($("tr_ij")?.value || 0),
-      inasist_injust: Number($("tr_ii")?.value || 0),
-      tard_just: Number($("tr_tj")?.value || 0),
-      tard_injust: Number($("tr_ti")?.value || 0),
-
-      comment: tutorComment,
-      final_status: finalStatus,
-
-      updated_by: sessionUser.email,
-      at: new Date().toISOString(),
-    };
-
-    saveLocalTutorFinalStatus(studentId, grade, bimestre, finalStatus);
-
-    let up = await sb.from("tutor_reports").upsert([payload], {
-      onConflict: "student_id,grade,year,bimestre",
-    });
-    if (up.error && isSchemaColumnError(up.error)) {
-      const { final_status, ...compatiblePayload } = payload;
-      up = await sb.from("tutor_reports").upsert([compatiblePayload], {
-        onConflict: "student_id,grade,year,bimestre",
-      });
-    }
+      sessionUser.email
+    );
+    const up = await persistTutorReportPayload(payload);
     if (up.error) return toast(up.error.message, "err");
 
     await recordAudit("tutor_report_saved", { student_id: studentId, grade, bimestre });
@@ -4628,46 +4780,64 @@ document.addEventListener("click", async (ev) => {
     if (!studentId || !course) return toast("Selecciona alumno y curso.", "err");
 
     const comps = competenciasPorCurso(course, grade);
-    if (!comps.length) return toast("Este curso no tiene competencias configuradas.", "err");
+    const hasTutorEditor = !!$("dir_tr_comment");
 
-    const markRows = comps.map((_, idx) => {
-      const id = makeMarkId(studentId, grade, course, bimestre, idx);
-      return {
-        id,
+    if (comps.length) {
+      const markRows = comps.map((_, idx) => {
+        const id = makeMarkId(studentId, grade, course, bimestre, idx);
+        return {
+          id,
+          studentId,
+          grade,
+          course,
+          bimestre,
+          compIndex: Number(idx),
+          nl: $(`dir_mk_${idx}`)?.value ?? "",
+          updatedBy: sessionUser.email,
+          at: new Date().toISOString(),
+        };
+      });
+
+      const upMarks = await sb.from("marks").upsert(markRows, { onConflict: "id" });
+      if (upMarks.error) return toast(upMarks.error.message, "err");
+
+      const descRows = comps.map((_, idx) => {
+        const descEl = $(`dir_cd_${idx}`);
+        const desc = limitCommentText(descEl?.value ?? "");
+        if (descEl) descEl.value = desc;
+        return {
+          student_id: studentId,
+          grade,
+          course,
+          bimestre,
+          comp_index: Number(idx),
+          desc,
+          updated_by: sessionUser.email,
+          at: new Date().toISOString(),
+        };
+      });
+
+      const upDesc = await sb
+        .from("competency_desc")
+        .upsert(descRows, { onConflict: "student_id,grade,course,bimestre,comp_index" });
+      if (upDesc.error) return toast(upDesc.error.message, "err");
+    }
+
+    if (hasTutorEditor) {
+      const tutorPayload = buildTutorReportPayloadFromForm(
+        "dir_tr",
         studentId,
         grade,
-        course,
         bimestre,
-        compIndex: Number(idx),
-        nl: $(`dir_mk_${idx}`)?.value ?? "",
-        updatedBy: sessionUser.email,
-        at: new Date().toISOString(),
-      };
-    });
+        sessionUser.email
+      );
+      const upTutor = await persistTutorReportPayload(tutorPayload);
+      if (upTutor.error) return toast(upTutor.error.message, "err");
+    }
 
-    const upMarks = await sb.from("marks").upsert(markRows, { onConflict: "id" });
-    if (upMarks.error) return toast(upMarks.error.message, "err");
-
-    const descRows = comps.map((_, idx) => {
-      const descEl = $(`dir_cd_${idx}`);
-      const desc = limitCommentText(descEl?.value ?? "");
-      if (descEl) descEl.value = desc;
-      return {
-        student_id: studentId,
-        grade,
-        course,
-        bimestre,
-        comp_index: Number(idx),
-        desc,
-        updated_by: sessionUser.email,
-        at: new Date().toISOString(),
-      };
-    });
-
-    const upDesc = await sb
-      .from("competency_desc")
-      .upsert(descRows, { onConflict: "student_id,grade,course,bimestre,comp_index" });
-    if (upDesc.error) return toast(upDesc.error.message, "err");
+    if (!comps.length && !hasTutorEditor) {
+      return toast("Este curso no tiene competencias configuradas.", "err");
+    }
 
     await recordAudit("director_report_card_edited", {
       student_id: studentId,
@@ -4675,9 +4845,10 @@ document.addEventListener("click", async (ev) => {
       course,
       bimestre,
       competencies: comps.length,
+      tutor_section: hasTutorEditor,
     });
     await loadAll(true);
-    toast("Libreta actualizada");
+    toast(hasTutorEditor ? "Libreta y tutoría actualizadas" : "Libreta actualizada");
     render();
     return;
   }
