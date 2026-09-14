@@ -6,66 +6,28 @@ const SUPABASE_ANON_KEY =
 
 const SUPABASE_MODULE_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-function makeSupabaseFallback(reason = "Supabase no disponible") {
-  const error = { message: reason };
-  const readResult = Promise.resolve({ data: [], error: null });
-  const singleResult = Promise.resolve({ data: null, error: null });
-  const writeResult = Promise.resolve({ data: null, error });
-
-  const builder = {
-    select() { return this; },
-    order() { return this; },
-    eq() { return this; },
-    limit() { return this; },
-    maybeSingle() { return singleResult; },
-    insert() { return writeResult; },
-    upsert() { return writeResult; },
-    update() { return { eq: () => writeResult }; },
-    delete() { return { eq: () => writeResult }; },
-    then(resolve) { return readResult.then(resolve); },
-    catch(reject) { return readResult.catch(reject); },
-    finally(cb) { return readResult.finally(cb); },
-  };
-
-  return { from: () => ({ ...builder }) };
-}
-
-let sb = makeSupabaseFallback("Conexión con Supabase pendiente");
-let supabaseReady = false;
+let sb = null;
 let supabaseLoadPromise = null;
-
 async function initSupabase() {
-  if (supabaseReady) return true;
-  if (supabaseLoadPromise) return supabaseLoadPromise;
-
-  supabaseLoadPromise = Promise.race([
-    import(SUPABASE_MODULE_URL),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("No se pudo cargar Supabase a tiempo")), 6500)
-    ),
-  ])
-    .then(({ createClient }) => {
-      sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      supabaseReady = true;
+  if (sb) return true;
+  if (!supabaseLoadPromise) {
+    supabaseLoadPromise = (async () => {
+      const module = await withTimeout(import(SUPABASE_MODULE_URL), "conexión", 10000);
+      if (!module.createClient) throw new Error("No se pudo conectar. Verifica tu conexión e inténtalo nuevamente.");
+      sb = module.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { storage: window.sessionStorage, persistSession: true, detectSessionInUrl: false },
+        global: { fetch: fetchWithDeadline }
+      });
+      sb.auth.onAuthStateChange((event) => {
+        if (event === "SIGNED_OUT") clearAcademicSession();
+      });
       return true;
-    })
-    .catch((err) => {
-      console.warn("[KW] Supabase no cargó. Modo local para acceso inicial:", err?.message || err);
-      sb = makeSupabaseFallback("Supabase no disponible. Revisa internet o abre el sistema con un servidor local.");
-      supabaseReady = false;
-      return false;
-    });
-
+    })().finally(() => { supabaseLoadPromise = null; });
+  }
   return supabaseLoadPromise;
 }
 
-/* Seguridad: no se deja ninguna clave administrativa fija en el código. */
-const DIRECTOR_PROFILE_KEY = "kwc_director_profile_v3";
-const LOCAL_TEACHER_CREDENTIALS_KEY = "kwc_teacher_credentials_v2";
-const LOCAL_AUDIT_KEY = "kwc_audit_logs_v2";
-const LOCAL_TUTOR_FINAL_STATUS_KEY = "kwc_tutor_final_status_v1";
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_MINUTES = 15;
+/* Las cuentas se autentican exclusivamente con Supabase Auth. */
 const OFFICIAL_YEAR_PHRASE = "Año de la esperanza y fortalecimiento de la democracia";
 const DIRECTOR_DISPLAY_NAME = "Maria E. Rojas Castañeda";
 const MAX_COMMENT_CHARS = 350;
@@ -434,7 +396,7 @@ let state = {
   marks: [],
   compDesc: [],
 
-  config: { locked: false, bimestre: "I BIMESTRE" },
+  config: { locked: true, bimestre: "I BIMESTRE" },
   grade: "3 Años - Inicial",
   tab: "dashboard",
   teacherCourse: null,
@@ -688,89 +650,29 @@ function limitTutorComment(text) {
   return limitCommentText(text);
 }
 
-function readLocalJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
+function domIdPart(value) {
+  return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
-function writeLocalJson(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+function teacherMarkInputId(studentId, compIdx) {
+  return `mk_${domIdPart(studentId)}_${Number(compIdx)}`;
 }
 
-function isSchemaColumnError(error) {
-  const msg = String(error?.message || error || "").toLowerCase();
-  return (
-    msg.includes("column") ||
-    msg.includes("schema cache") ||
-    msg.includes("could not find") ||
-    msg.includes("does not exist")
-  );
+function teacherDescInputId(studentId, compIdx) {
+  return `cd_${domIdPart(studentId)}_${Number(compIdx)}`;
 }
 
-function randomToken(length = 12) {
+function randomToken(length = 16) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-  const bytes = new Uint8Array(length);
-  if (crypto?.getRandomValues) {
-    crypto.getRandomValues(bytes);
-  } else {
-    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
-  }
-  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
-}
-
-function toHex(buffer) {
-  return Array.from(new Uint8Array(buffer), (b) =>
-    b.toString(16).padStart(2, "0")
-  ).join("");
-}
-
-async function sha256Hex(text) {
-  if (!crypto?.subtle) {
-    let h1 = 0xdeadbeef;
-    let h2 = 0x41c6ce57;
-    for (let i = 0; i < text.length; i += 1) {
-      const ch = text.charCodeAt(i);
-      h1 = Math.imul(h1 ^ ch, 2654435761);
-      h2 = Math.imul(h2 ^ ch, 1597334677);
-    }
-    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-    return `${(h2 >>> 0).toString(16).padStart(8, "0")}${(h1 >>> 0).toString(16).padStart(8, "0")}`;
-  }
-  const data = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return toHex(digest);
-}
-
-function newSalt() {
-  return randomToken(18);
-}
-
-async function hashPassword(password, salt) {
-  return sha256Hex(`${salt}:${password}:kwc-academico-v2`);
-}
-
-async function makePasswordPayload(password, mustChange = true) {
-  const salt = newSalt();
-  return {
-    password_hash: await hashPassword(password, salt),
-    password_salt: salt,
-    must_change_password: mustChange,
-    password_updated_at: new Date().toISOString(),
-    failed_attempts: 0,
-    locked_until: null,
-    status: "active",
-  };
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return "Kw7" + Array.from(bytes, (b) => chars[b % chars.length]).join("");
 }
 
 function validatePassword(password) {
-  if (!password || password.length < 8) {
-    return "La contraseña debe tener al menos 8 caracteres.";
+  if (!password || password.length < 12) {
+    return "La contraseña debe tener al menos 12 caracteres.";
   }
+  if (password.length > 128) return "La contraseña no debe superar los 128 caracteres.";
   if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
     return "La contraseña debe combinar letras y números.";
   }
@@ -792,27 +694,7 @@ function teacherEmailKey(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-function getLocalTeacherCredentials() {
-  return readLocalJson(LOCAL_TEACHER_CREDENTIALS_KEY, {});
-}
-
-function saveLocalTeacherCredential(email, payload) {
-  const key = teacherEmailKey(email);
-  if (!key) return;
-  const all = getLocalTeacherCredentials();
-  all[key] = {
-    ...(all[key] || {}),
-    ...payload,
-    email: key,
-    updated_at: new Date().toISOString(),
-  };
-  writeLocalJson(LOCAL_TEACHER_CREDENTIALS_KEY, all);
-}
-
-function mergeTeacherSecurity(teacher) {
-  const local = getLocalTeacherCredentials()[teacherEmailKey(teacher?.email)] || {};
-  return { ...teacher, ...local, assignments: teacher?.assignments || [] };
-}
+function mergeTeacherSecurity(teacher) { return teacher; }
 
 function accountRole(user) {
   return String(user?.role || "teacher").trim().toLowerCase();
@@ -841,192 +723,29 @@ function getActiveLock(account) {
     : null;
 }
 
-async function verifyStoredPassword(password, profile) {
-  if (!profile?.password_hash || !profile?.password_salt) return false;
-  const hash = await hashPassword(password, profile.password_salt);
-  return hash === profile.password_hash;
-}
+function getCombinedAuditRows() { return state.auditLogs || []; }
 
-async function persistTeacherSecurity(teacher, updates) {
-  const email = teacherEmailKey(teacher?.email);
-  const payload = { ...updates, at: new Date().toISOString() };
-
-  if (teacher?.id) {
-    const up = await sb.from("users").update(payload).eq("id", teacher.id);
-    if (!up.error) return { mode: "supabase" };
-    if (!isSchemaColumnError(up.error)) return { error: up.error };
-  }
-
-  saveLocalTeacherCredential(email, payload);
-  return { mode: "local" };
-}
-
-function localAuditRows() {
-  return readLocalJson(LOCAL_AUDIT_KEY, []);
-}
-
-function pushLocalAudit(row) {
-  const rows = [row, ...localAuditRows()].slice(0, 250);
-  writeLocalJson(LOCAL_AUDIT_KEY, rows);
-}
-
-function getCombinedAuditRows() {
-  const byKey = new Map();
-  const add = (row) => {
-    if (!row) return;
-    const key = `${row.at || row.created_at || ""}-${row.action || ""}-${row.actor_email || ""}-${JSON.stringify(row.detail || {})}`;
-    if (!byKey.has(key)) byKey.set(key, row);
-  };
-  (state.auditLogs || []).forEach(add);
-  localAuditRows().forEach(add);
-  return Array.from(byKey.values())
-    .sort((a, b) => new Date(b.at || b.created_at || 0) - new Date(a.at || a.created_at || 0))
-    .slice(0, 120);
-}
-
-async function recordAudit(action, detail = {}, actor = sessionUser) {
-  const row = {
-    action,
-    actor_email: actor?.email || "sistema",
-    actor_role: actor?.role || "system",
-    detail,
-    at: new Date().toISOString(),
-  };
-
-  pushLocalAudit(row);
-
+async function recordAudit(action, detail = {}) {
+  if (!sessionUser) return;
   try {
-    const res = await withTimeout(sb.from("audit_logs").insert([row]), "audit_logs", 3500);
-    if (res?.error) console.warn("[KW] auditoría local:", res.error.message || res.error);
-  } catch (err) {
-    console.warn("[KW] auditoría local:", err?.message || err);
+    const result = await sb.rpc("kwc_log_event", { p_action: action, p_detail: detail });
+    if (result.error) console.warn("[KW] No se confirmó la auditoría:", result.error.message);
+  } catch (error) {
+    console.warn("[KW] No se confirmó la auditoría:", error.message);
   }
-}
-
-function getLocalDirectorProfile() {
-  const current = readLocalJson(DIRECTOR_PROFILE_KEY, null);
-  if (!current?.email || !current?.password_hash || !current?.password_salt) return null;
-  if (current.must_change_password && !current.password_updated_at) return null;
-  return {
-    ...current,
-    email: teacherEmailKey(current.email),
-    role: "director",
-    assignments: [],
-  };
-}
-
-function saveLocalDirectorProfile(profile) {
-  if (!profile?.email) return;
-  writeLocalJson(DIRECTOR_PROFILE_KEY, {
-    ...profile,
-    email: teacherEmailKey(profile.email),
-    role: "director",
-    assignments: [],
-    updated_at: new Date().toISOString(),
-  });
-}
-
-function getDirectorAccount(email = "") {
-  const key = teacherEmailKey(email);
-  const local = getLocalDirectorProfile();
-  const fromDb = (state.teachers || []).find(
-    (x) => isDirectorAccount(x) && (!key || teacherEmailKey(x.email) === key)
-  );
-  if (fromDb) {
-    const sameLocal =
-      local && teacherEmailKey(local.email) === teacherEmailKey(fromDb.email);
-    return {
-      ...(sameLocal ? local : {}),
-      ...fromDb,
-      ...(sameLocal && !fromDb.password_hash ? { password_hash: local.password_hash } : {}),
-      ...(sameLocal && !fromDb.password_salt ? { password_salt: local.password_salt } : {}),
-      ...(sameLocal && fromDb.must_change_password == null ? { must_change_password: local.must_change_password } : {}),
-      role: "director",
-      assignments: [],
-    };
-  }
-
-  if (local && (!key || teacherEmailKey(local.email) === key)) return local;
-  return null;
-}
-
-function hasDirectorAccount() {
-  const account = getDirectorAccount();
-  return !!(account?.password_hash && account?.password_salt);
-}
-
-async function persistDirectorSecurity(account, updates) {
-  const email = teacherEmailKey(account?.email);
-  const payload = { ...updates, at: new Date().toISOString() };
-
-  if (account?.id) {
-    const up = await sb.from("users").update(payload).eq("id", account.id);
-    if (!up.error) return { mode: "supabase" };
-    if (!isSchemaColumnError(up.error)) return { error: up.error };
-  }
-
-  saveLocalDirectorProfile({
-    ...(getLocalDirectorProfile() || {}),
-    ...account,
-    ...payload,
-    email,
-    name: account?.name || "Dirección",
-  });
-  return { mode: "local" };
-}
-
-async function saveDirectorPassword(password) {
-  const account = getDirectorAccount(sessionUser?.email);
-  if (!account) return { error: { message: "No se encontró la cuenta de dirección." } };
-  const payload = await makePasswordPayload(password, false);
-  return persistDirectorSecurity(account, payload);
-}
-
-async function createDirectorAccount({ name, email, password }) {
-  const security = await makePasswordPayload(password, false);
-  const profile = {
-    name,
-    email: teacherEmailKey(email),
-    role: "director",
-    assignments: [],
-    ...security,
-    at: new Date().toISOString(),
-  };
-
-  const existing = getDirectorAccount(profile.email);
-  if (existing) {
-    const result = await persistDirectorSecurity(
-      { ...existing, name: existing.name || name },
-      { ...security, name, email: profile.email, role: "director", assignments: [] }
-    );
-    if (!result.error) return result;
-    saveLocalDirectorProfile(profile);
-    return { mode: "local", warning: result.error.message };
-  }
-
-  let res = await sb.from("users").insert([profile]);
-  if (!res.error) return { mode: "supabase" };
-
-  if (isSchemaColumnError(res.error)) {
-    const compatible = {
-      name: profile.name,
-      email: profile.email,
-      role: "director",
-      assignments: [],
-      at: profile.at,
-    };
-    res = await sb.from("users").insert([compatible]);
-    saveLocalDirectorProfile(profile);
-    if (!res.error) return { mode: "local", warning: "La seguridad se guardó localmente porque faltan columnas en Supabase." };
-  }
-
-  saveLocalDirectorProfile(profile);
-  return { mode: "local", warning: res.error?.message || "Supabase no disponible." };
 }
 
 function auditDetailText(detail) {
   if (!detail) return "";
   if (typeof detail === "string") return detail;
+  if (detail.table) {
+    const row = detail.after || detail.before || {};
+    const labels = { nl: "Nota", desc: "Descripción", comment: "Comentario", final_status: "Situación", status: "Estado", role: "Rol" };
+    const changed = Object.entries(labels).filter(([key]) => key in row && detail.before?.[key] !== detail.after?.[key])
+      .map(([key, label]) => `${label}: ${row[key] || "Sin valor"}`);
+    return [detail.table, row.nombre || row.name || row.student_id, row.grade || row.grado, row.course,
+      row.bimestre, row.comp_index != null ? `C${Number(row.comp_index) + 1}` : "", ...changed].filter(Boolean).join(" · ");
+  }
   try {
     return Object.entries(detail)
       .map(([k, v]) => `${k}: ${v}`)
@@ -1099,33 +818,11 @@ function getTutorField(studentId, grade, bimestre, field, defVal = "") {
   return v === null || v === undefined ? defVal : v;
 }
 
-function tutorFinalStatusKey(studentId, grade, bimestre) {
-  return [SCHOOL_YEAR, grade, studentId, bimestre].map((x) => String(x || "")).join("|");
-}
-
-function getLocalTutorFinalStatus(studentId, grade, bimestre) {
-  const all = readLocalJson(LOCAL_TUTOR_FINAL_STATUS_KEY, {});
-  return all[tutorFinalStatusKey(studentId, grade, bimestre)] || "";
-}
-
-function saveLocalTutorFinalStatus(studentId, grade, bimestre, value) {
-  const all = readLocalJson(LOCAL_TUTOR_FINAL_STATUS_KEY, {});
-  const key = tutorFinalStatusKey(studentId, grade, bimestre);
-  if (value) {
-    all[key] = value;
-  } else {
-    delete all[key];
-  }
-  writeLocalJson(LOCAL_TUTOR_FINAL_STATUS_KEY, all);
-}
-
 function getTutorFinalStatus(studentId, grade) {
   const order = ["IV BIMESTRE", "III BIMESTRE", "II BIMESTRE", "I BIMESTRE"];
   for (const bim of order) {
     const fromDb = getTutorField(studentId, grade, bim, "final_status", "");
     if (fromDb) return fromDb;
-    const fromLocal = getLocalTutorFinalStatus(studentId, grade, bim);
-    if (fromLocal) return fromLocal;
   }
   return "";
 }
@@ -1187,23 +884,11 @@ function buildTutorReportPayloadFromForm(prefix, studentId, grade, bimestre, act
 }
 
 async function persistTutorReportPayload(payload) {
-  saveLocalTutorFinalStatus(
-    payload.student_id,
-    payload.grade,
-    payload.bimestre,
-    payload.final_status || ""
-  );
-
-  let up = await sb.from("tutor_reports").upsert([payload], {
+  const result = await sb.from("tutor_reports").upsert([payload], {
     onConflict: "student_id,grade,year,bimestre",
-  });
-  if (up.error && isSchemaColumnError(up.error)) {
-    const { final_status, ...compatiblePayload } = payload;
-    up = await sb.from("tutor_reports").upsert([compatiblePayload], {
-      onConflict: "student_id,grade,year,bimestre",
-    });
-  }
-  return up;
+  }).select("*").single();
+  if (!result.error && !result.data) return { error: { message: "El servidor no confirmó el guardado de tutoría." } };
+  return result;
 }
 
 function teacherVisibleGrades(user = sessionUser) {
@@ -1268,34 +953,10 @@ function getAttendanceStatus(dateISO, grade, course, studentId) {
 
 /* ===== Competency Desc helpers ===== */
 function findCompDesc(studentId, grade, course, bimestre, compIndex) {
-  const c1 = (course || "").trim();
-  const c2 = normalizeCourseForGrade(c1, grade);
-
-  const rows = (state.compDesc || [])
-    .filter((d) => {
-      const dc = (d.course || "").trim();
-      return (
-        String(d.student_id) === String(studentId) &&
-        (d.grade || "") === grade &&
-        (d.bimestre || "") === bimestre &&
-        Number(d.comp_index) === Number(compIndex) &&
-        (dc === c1 || sameCourseForGrade(dc, c2, grade))
-      );
-    })
-    .sort((a, b) => {
-      const aExact = normalizeCourseForGrade(a.course || "", grade) === c2 ? 1 : 0;
-      const bExact = normalizeCourseForGrade(b.course || "", grade) === c2 ? 1 : 0;
-      if (aExact !== bExact) return bExact - aExact;
-      return new Date(b.at || b.updated_at || 0) - new Date(a.at || a.updated_at || 0);
-    });
-
-  return rows[0]?.desc || "";
+  return evaluationFor(studentId, grade, course, bimestre, compIndex)?.desc || "";
 }
 
-/* Cargar todo
-   Mejora clave: antes el sistema podía quedarse eternamente en "Cargando sistema…"
-   si Supabase no respondía, una tabla no existía o la red estaba lenta.
-   Ahora cada consulta tiene timeout, fallback seguro y el login siempre se muestra. */
+/* Las respuestas incompletas se propagan como errores; nunca sustituyen datos por vacios. */
 function withTimeout(promise, label, ms = 9000) {
   let timer;
   const timeout = new Promise((resolve) => {
@@ -1308,319 +969,95 @@ function withTimeout(promise, label, ms = 9000) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-async function safeQuery(label, query, fallback = []) {
-  try {
-    const res = await withTimeout(query, label);
-    if (res?.error) {
-      console.warn(`[KW] ${label}:`, res.error.message || res.error);
-      return { data: fallback, error: res.error };
-    }
-    return { data: res?.data ?? fallback, error: null };
-  } catch (err) {
-    console.warn(`[KW] Error cargando ${label}:`, err?.message || err);
-    return { data: fallback, error: err };
-  }
-}
-
 async function loadAll(force = false) {
-  const now = Date.now();
-  if (!force && lastLoadAt && now - lastLoadAt < LOAD_CACHE_MS) return;
-  if (!force && loadPromise) return loadPromise;
-
+  if (!sessionUser) throw new Error("Debes iniciar sesión.");
+  if (!force && lastLoadAt && Date.now() - lastLoadAt < LOAD_CACHE_MS) return;
+  if (loadPromise) return loadPromise;
+  const actor = sessionUser.auth_user_id;
+  const generation = sessionGeneration;
   loadPromise = (async () => {
-  await initSupabase();
-
-  const [
-    students,
-    users,
-    marks,
-    settings,
-    tutors,
-    tutorReports,
-    attendance,
-    compd,
-    auditLogs,
-  ] = await Promise.all([
-    safeQuery("students", sb.from("students").select("*").order("nombre", { ascending: true })),
-    safeQuery("users", sb.from("users").select("*").order("name", { ascending: true })),
-    safeQuery("marks", sb.from("marks").select("*")),
-    safeQuery("settings", sb.from("settings").select("*").eq("key", "global").maybeSingle(), null),
-    safeQuery("homeroom_tutors", sb.from("homeroom_tutors").select("*")),
-    safeQuery("tutor_reports", sb.from("tutor_reports").select("*")),
-    safeQuery("attendance", sb.from("attendance").select("*")),
-    safeQuery("competency_desc", sb.from("competency_desc").select("*")),
-    safeQuery("audit_logs", sb.from("audit_logs").select("*").order("at", { ascending: false }).limit(120)),
-  ]);
-
-  state.students = students.data || [];
-  state.teachers = (users.data || []).map(mergeTeacherSecurity);
-  state.marks = marks.data || [];
-
-  if (settings.data) {
-    state.config = { ...state.config, ...settings.data };
-  } else {
-    state.config = { ...state.config, locked: false, bimestre: state.config.bimestre || "I BIMESTRE" };
-  }
-
-  state.homeroomTutors = tutors.data || [];
-  state.tutorReports = tutorReports.data || [];
-  state.attendance = attendance.data || [];
-  state.compDesc = compd.data || [];
-  state.auditLogs = auditLogs.data || [];
-  lastLoadAt = Date.now();
+    const [students, users, evaluations, settings, tutors, reports, attendance, logs] = await Promise.all([
+      fetchAllRows("students"), fetchAllRows("kwc_staff"),
+      fetchAllRows("kwc_evaluations", q => q.eq("year", SCHOOL_YEAR)),
+      sb.from("settings").select("*").eq("key", "global").single(),
+      fetchAllRows("homeroom_tutors"), fetchAllRows("tutor_reports"), fetchAllRows("attendance"),
+      sessionUser.role === "director"
+        ? sb.from("audit_logs").select("*").order("at", { ascending: false }).limit(120)
+        : Promise.resolve({ data: [] }),
+    ]);
+    if (settings.error || !settings.data) throw new Error("No se pudo cargar la configuración del colegio.");
+    if (logs.error) throw new Error("No se pudo cargar la auditoría.");
+    if (!sessionUser || sessionUser.auth_user_id !== actor || generation !== sessionGeneration) return;
+    // Publicar solo cuando todas las consultas hayan terminado correctamente.
+    state.students = students.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), "es"));
+    state.teachers = users;
+    applyEvaluations(evaluations, true);
+    state.config = settings.data;
+    state.homeroomTutors = tutors;
+    state.tutorReports = reports;
+    state.attendance = attendance;
+    state.auditLogs = logs.data;
+    lastLoadAt = Date.now();
   })();
-
-  try { await loadPromise; }
-  finally { loadPromise = null; }
+  const pending = loadPromise;
+  try { await pending; } finally { if (loadPromise === pending) loadPromise = null; }
 }
 
-/* INIT */
-function attachGlobalHandlersOnce() {
-  if (window.__KW_HANDLERS_ATTACHED__) return;
-  window.__KW_HANDLERS_ATTACHED__ = true;
-
-  $("login-form")?.addEventListener("submit", handleLogin);
-  $("director-setup-btn")?.addEventListener("click", handleDirectorSetup);
-  $("logout-btn")?.addEventListener("click", async () => {
-    await recordAudit("logout", { result: "ok" }, sessionUser);
-    sessionUser = null;
-    state.tab = "dashboard";
-    state.teacherCourse = null;
-    stopClock();
-    toast("Sesión cerrada");
-    setView("login");
-  });
+function loginError(message) {
+  $("login-error").textContent = message;
+  show("login-error");
 }
 
 window.addEventListener("load", async () => {
-  const loader = $("app-loader");
   clearTimeout(window.__KW_LOADER_FALLBACK__);
-
-  // Mostramos el login primero para que Supabase lento/pausado no deje el sistema congelado.
-  attachGlobalHandlersOnce();
+  $("app-loader")?.classList.add("hidden");
   setView("login");
-  loader?.classList.add("hidden");
-
+  $("login-form")?.addEventListener("submit", handleLogin);
+  $("logout-btn")?.addEventListener("click", async () => {
+    await recordAudit("logout");
+    clearAcademicSession();
+    try { await sb.auth.signOut({ scope: "local" }); } catch {}
+  });
   try {
-    await loadAll(true);
-    refreshDirectorSetupPanel();
-  } catch (err) {
-    console.warn("[KW] Modo seguro:", err?.message || err);
-    toast("Sistema iniciado. Si faltan datos, revisa Supabase.", "err");
-    refreshDirectorSetupPanel();
+    await initSupabase();
+    const existing = await sb.auth.getSession();
+    if (!existing.data?.session) return;
+    sessionUser = await verifiedProfile();
+    if (!sessionUser.must_change_password) await loadAll(true);
+    enterApp();
+  } catch (error) {
+    clearAcademicSession();
+    loginError(error.message);
   }
 });
 
-/* LOGIN */
-function setDirectorSetupMessage(message, type = "ok") {
-  const el = $("director-setup-msg");
-  if (!el) return;
-  el.textContent = message || "";
-  el.className =
-    "text-xs font-black text-center " +
-    (type === "err" ? "text-rose-600" : "text-blue-700");
-  if (message) el.classList.remove("hidden");
-  else el.classList.add("hidden");
-}
-
-function refreshDirectorSetupPanel() {
-  const panel = $("director-setup-panel");
-  if (!panel) return;
-  panel.classList.toggle("hidden", hasDirectorAccount());
-}
-
-async function handleDirectorSetup() {
+async function handleLogin(event) {
+  event.preventDefault();
+  const button = $("login-form").querySelector('button[type="submit"]');
+  if (button.disabled) return;
   hide("login-error");
-  setDirectorSetupMessage("");
-  await loadAll(false);
-
-  if (hasDirectorAccount()) {
-    refreshDirectorSetupPanel();
-    return toast("La cuenta de Dirección ya está configurada.");
-  }
-
-  const name = ($("director-name")?.value || "").trim().replace(/\s+/g, " ");
-  const email = ($("director-email")?.value || "").trim().toLowerCase();
-  const pass = ($("director-pass")?.value || "").trim();
-  const pass2 = ($("director-pass2")?.value || "").trim();
-
-  const nameError = validatePersonName(name, "El nombre de Dirección");
-  if (nameError) return setDirectorSetupMessage(nameError, "err");
-  if (!isValidEmail(email)) return setDirectorSetupMessage("Ingresa un correo válido.", "err");
-  if (activeTeacherUsers().some((u) => teacherEmailKey(u.email) === email)) {
-    return setDirectorSetupMessage("Ese correo ya está registrado como docente.", "err");
-  }
-  if (pass !== pass2) return setDirectorSetupMessage("Las contraseñas no coinciden.", "err");
-  const passError = validatePassword(pass);
-  if (passError) return setDirectorSetupMessage(passError, "err");
-
-  const result = await createDirectorAccount({ name, email, password: pass });
-  await recordAudit("director_created", {
-    email,
-    credential_mode: result.mode,
-    warning: result.warning || "",
-  }, { email, role: "director" });
-
-  await loadAll(true);
-  refreshDirectorSetupPanel();
-  setDirectorSetupMessage(
-    result.warning
-      ? "Cuenta creada. Revisa Supabase para activar columnas de seguridad."
-      : "Cuenta de Dirección creada. Ya puedes iniciar sesión."
-  );
-  toast("Acceso de Dirección creado");
-}
-
-async function handleLogin(e) {
-  e.preventDefault();
-  hide("login-error");
-
-  await loadAll(false);
-  refreshDirectorSetupPanel();
-
-  const email = ($("email-input")?.value || "").trim().toLowerCase();
-  const pass = ($("pass-input")?.value || "").trim();
-
-  if (!email || !pass) {
-    $("login-error").textContent = "Completa correo y contraseña.";
-    show("login-error");
-    return;
-  }
-
-  const directorRaw = getDirectorAccount(email);
-  if (directorRaw) {
-    const profile = { ...directorRaw, role: "director" };
-
-    if (isTeacherBlocked(profile)) {
-      await recordAudit("login_failed", { email, role: "director", reason: "blocked" }, { email, role: "director" });
-      $("login-error").textContent = "Cuenta de Dirección bloqueada.";
-      show("login-error");
-      return;
-    }
-
-    const activeLock = getActiveLock(profile);
-    if (activeLock) {
-      await recordAudit("login_failed", { email, role: "director", reason: "temporary_lock" }, { email, role: "director" });
-      $("login-error").textContent = `Cuenta bloqueada temporalmente hasta ${activeLock.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}.`;
-      show("login-error");
-      return;
-    }
-
-    if (!profile.password_hash || !profile.password_salt) {
-      await recordAudit("login_failed", { email, role: "director", reason: "missing_password" }, { email, role: "director" });
-      $("login-error").textContent = "La cuenta de Dirección no tiene contraseña segura configurada.";
-      show("login-error");
-      return;
-    }
-
-    const ok = await verifyStoredPassword(pass, profile);
-
-    if (!ok) {
-      const failed = Number(profile.failed_attempts || 0) + 1;
-      const updates = { failed_attempts: failed };
-      if (failed >= MAX_FAILED_ATTEMPTS) {
-        updates.locked_until = new Date(Date.now() + LOCK_MINUTES * 60 * 1000).toISOString();
-      }
-      await persistDirectorSecurity(profile, updates);
-      await recordAudit("login_failed", { email, role: "director", reason: "password" }, { email, role: "director" });
-      $("login-error").textContent =
-        failed >= MAX_FAILED_ATTEMPTS
-          ? `Demasiados intentos. Cuenta bloqueada por ${LOCK_MINUTES} minutos.`
-          : `Contraseña incorrecta. Intento ${failed} de ${MAX_FAILED_ATTEMPTS}.`;
-      show("login-error");
-      await loadAll(true);
-      refreshDirectorSetupPanel();
-      return;
-    }
-
-    await persistDirectorSecurity(profile, {
-      failed_attempts: 0,
-      locked_until: null,
-      last_login_at: new Date().toISOString(),
-    });
-
-    sessionUser = {
-      role: "director",
-      name: profile.name || "Dirección",
-      email: profile.email || email,
-      id: profile.id || null,
-      must_change_password: !!profile.must_change_password,
-    };
-    await recordAudit("login_ok", { email, role: "director" }, sessionUser);
+  const email = $("email-input").value.trim().toLowerCase();
+  const password = $("pass-input").value;
+  if (!email || !password) return loginError("Completa correo y contraseña.");
+  button.disabled = true;
+  button.textContent = "Verificando...";
+  try {
+    await initSupabase();
+    const result = await sb.auth.signInWithPassword({ email, password });
+    if (result.error) throw new Error("No se pudo iniciar sesión. Revisa tus credenciales o espera antes de reintentar.");
+    sessionUser = await verifiedProfile();
+    if (!sessionUser.must_change_password) await loadAll(true);
+    $("pass-input").value = "";
+    await recordAudit("login_ok");
     enterApp();
-    return;
+  } catch (error) {
+    clearAcademicSession();
+    try { await sb?.auth.signOut({ scope: "local" }); } catch {}
+    loginError(error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Ingresar";
   }
-
-  const teacherRaw = activeTeacherUsers().find((x) => (x.email || "").toLowerCase() === email);
-  if (!teacherRaw) {
-    await recordAudit("login_failed", { email, role: "teacher", reason: "not_enabled" }, { email, role: "teacher" });
-    $("login-error").textContent = "Este correo no está habilitado como docente.";
-    show("login-error");
-    return;
-  }
-
-  const t = mergeTeacherSecurity(teacherRaw);
-  if (isTeacherBlocked(t)) {
-    await recordAudit("login_failed", { email, role: "teacher", reason: "blocked" }, { email, role: "teacher" });
-    $("login-error").textContent = "Cuenta bloqueada por dirección. Comunícate con la directora.";
-    show("login-error");
-    return;
-  }
-
-  const activeLock = getActiveLock(t);
-  if (activeLock) {
-    await recordAudit("login_failed", { email, role: "teacher", reason: "temporary_lock" }, { email, role: "teacher" });
-    $("login-error").textContent = `Cuenta bloqueada temporalmente hasta ${activeLock.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}.`;
-    show("login-error");
-    return;
-  }
-
-  if (!t.password_hash || !t.password_salt) {
-    await recordAudit("login_failed", { email, role: "teacher", reason: "missing_password" }, { email, role: "teacher" });
-    $("login-error").textContent = "Tu cuenta aún no tiene contraseña segura. Pide a la directora generar una clave nueva.";
-    show("login-error");
-    return;
-  }
-
-  const ok = await verifyStoredPassword(pass, t);
-  if (!ok) {
-    const failed = Number(t.failed_attempts || 0) + 1;
-    const updates = { failed_attempts: failed };
-    if (failed >= MAX_FAILED_ATTEMPTS) {
-      updates.locked_until = new Date(Date.now() + LOCK_MINUTES * 60 * 1000).toISOString();
-    }
-    await persistTeacherSecurity(t, updates);
-    await recordAudit("login_failed", {
-      email,
-      role: "teacher",
-      reason: "password",
-      failed_attempts: failed,
-    }, { email, role: "teacher" });
-    $("login-error").textContent =
-      failed >= MAX_FAILED_ATTEMPTS
-        ? `Demasiados intentos. Cuenta bloqueada por ${LOCK_MINUTES} minutos.`
-        : `Contraseña incorrecta. Intento ${failed} de ${MAX_FAILED_ATTEMPTS}.`;
-    show("login-error");
-    await loadAll(true);
-    return;
-  }
-
-  await persistTeacherSecurity(t, {
-    failed_attempts: 0,
-    locked_until: null,
-    last_login_at: new Date().toISOString(),
-  });
-
-  sessionUser = {
-    role: "teacher",
-    name: t.name,
-    email: t.email,
-    assignments: Array.isArray(t.assignments) ? t.assignments : [],
-    must_change_password: !!t.must_change_password,
-  };
-
-  await recordAudit("login_ok", { email, role: "teacher" }, sessionUser);
-  enterApp();
 }
 
 function enterApp() {
@@ -1986,7 +1423,7 @@ function renderDashboard() {
   const myMarks = (state.marks || [])
     .filter(
       (m) =>
-        (m.updatedBy || "").toLowerCase() ===
+        (m.updated_by || m.updatedBy || "").toLowerCase() ===
         (sessionUser.email || "").toLowerCase()
     )
     .map((m) => ({
@@ -2066,23 +1503,7 @@ function markLevel(mark) {
 }
 
 function findMarkRow(studentId, grade, course, bimestre, compIndex) {
-  const normalized = normalizeCourseForGrade(course, grade);
-  const canonicalId = makeMarkId(studentId, grade, normalized, bimestre, compIndex);
-  return (state.marks || [])
-    .filter(
-      (m) =>
-        String(markStudentId(m)) === String(studentId) &&
-        (m.grade || "") === grade &&
-        sameCourseForGrade(m.course || "", normalized, grade) &&
-        (m.bimestre || "") === bimestre &&
-        Number(markCompIndex(m)) === Number(compIndex)
-    )
-    .sort((a, b) => {
-      const aExact = a.id === canonicalId ? 1 : 0;
-      const bExact = b.id === canonicalId ? 1 : 0;
-      if (aExact !== bExact) return bExact - aExact;
-      return new Date(b.at || b.updated_at || 0) - new Date(a.at || a.updated_at || 0);
-    })[0] || null;
+  return evaluationFor(studentId, grade, course, bimestre, compIndex) || null;
 }
 
 function getMarkValue(studentId, grade, course, bimestre, compIndex) {
@@ -2779,7 +2200,7 @@ function renderDocentes() {
     .map((tch) => {
       const assigns = Array.isArray(tch.assignments) ? tch.assignments : [];
       const secured = mergeTeacherSecurity(tch);
-      const hasPassword = !!(secured.password_hash && secured.password_salt);
+      const hasPassword = !!secured.auth_user_id;
       const lockedUntil = getActiveLock(secured);
       const blocked = isTeacherBlocked(secured);
       const statusText = blocked
@@ -3064,6 +2485,8 @@ function renderNotas() {
                         bim,
                         idx
                       );
+                      const markInputId = teacherMarkInputId(st.id, idx);
+                      const descInputId = teacherDescInputId(st.id, idx);
                       const val = getMarkValue(st.id, state.grade, course, bim, idx);
 
                       const dsc = limitCommentText(findCompDesc(st.id, state.grade, course, bim, idx));
@@ -3071,7 +2494,7 @@ function renderNotas() {
                       return `
                       <td class="p-2 min-w-[220px]">
                         <div class="space-y-2">
-                          <select class="w-full p-2 rounded-xl bg-white border border-slate-200 font-black" id="mk_${id}">
+                          <select class="w-full p-2 rounded-xl bg-white border border-slate-200 font-black" id="${markInputId}" data-mark-id="${escapeHtml(id)}">
                             ${NIVELES.map(
                               (n) =>
                                 `<option value="${n}" ${n === val ? "selected" : ""}>${n}</option>`
@@ -3080,7 +2503,7 @@ function renderNotas() {
 
                           <textarea
                             class="comp-desc-input auto-correct-text w-full p-2 rounded-xl bg-white border border-slate-200 font-bold"
-                            id="cd_${st.id}_${idx}"
+                            id="${descInputId}"
                             maxlength="${MAX_COMMENT_CHARS}"
                             placeholder="Conclusión descriptiva (competencia ${idx + 1})...">${escapeHtml(dsc)}</textarea>
                         </div>
@@ -3091,7 +2514,7 @@ function renderNotas() {
 
                   <td class="p-2">
                     <button class="no-print px-4 py-2 rounded-xl bg-blue-600 text-white font-black text-xs tracking-widest uppercase"
-                      data-save-st="${st.id}">Guardar</button>
+                      data-save-st="${escapeHtml(st.id)}">Guardar</button>
                   </td>
                 </tr>
               `;
@@ -3138,7 +2561,6 @@ function renderDirectorEditor() {
   const directorTutorReport = getTutorReport(studentId, state.grade, bimestre) || {};
   const directorFinalStatus =
     directorTutorReport.final_status ||
-    getLocalTutorFinalStatus(studentId, state.grade, bimestre) ||
     "";
 
   return `
@@ -3408,7 +2830,6 @@ function renderTutoria() {
   const tutorReport = getTutorReport(tutorStudentId, state.grade, b) || {};
   const tutorFinalStatus =
     tutorReport.final_status ||
-    getLocalTutorFinalStatus(tutorStudentId, state.grade, b) ||
     "";
 
   return `
@@ -3637,7 +3058,7 @@ function renderCuenta() {
         <p class="text-slate-500 font-black tracking-[0.25em] uppercase text-xs">Reglas</p>
         <h3 class="text-lg font-black mt-2">Buenas prácticas</h3>
         <ul class="elegant-list">
-          <li>Usa mínimo 8 caracteres.</li>
+          <li>Usa entre 12 y 128 caracteres.</li>
           <li>Combina letras y números.</li>
           <li>No compartas claves temporales por chats abiertos.</li>
           <li>Cambia las claves temporales en el primer ingreso.</li>
@@ -3653,10 +3074,10 @@ function renderAuditoria() {
   }
 
   const logs = getCombinedAuditRows();
-  const failed = logs.filter((x) => x.action === "login_failed").length;
+  const changes = logs.filter((x) => x.action?.startsWith("db_")).length;
   const ok = logs.filter((x) => x.action === "login_ok").length;
   const security = logs.filter((x) =>
-    ["teacher_password_reset", "password_changed", "teacher_status_changed"].includes(x.action)
+    ["account_action_authorized", "password_change_authorized"].includes(x.action) || x.detail?.table === "kwc_staff"
   ).length;
 
   return `
@@ -3665,12 +3086,12 @@ function renderAuditoria() {
         <p class="text-slate-500 font-black tracking-[0.25em] uppercase text-xs">Auditoría</p>
         <h3 class="text-xl font-black mt-2">Bitácora del sistema</h3>
         <p class="text-slate-500 font-bold text-sm mt-2">
-          Registra accesos, intentos fallidos, cambios de claves, matrícula, notas y configuración.
+          Últimas 120 actividades. Los intentos de acceso fallidos se consultan en los registros de Supabase Auth.
         </p>
 
         <div class="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
           ${kpiCard("✓", "Ingresos correctos", ok, "Sesiones validadas")}
-          ${kpiCard("!", "Intentos fallidos", failed, "Revisar si sube")}
+          ${kpiCard("!", "Cambios registrados", changes, "Confirmados por el servidor")}
           ${kpiCard("↻", "Seguridad", security, "Claves y estados")}
         </div>
       </div>
@@ -4287,7 +3708,7 @@ document.addEventListener("change", (ev) => {
 
     if ($("tr_comment")) $("tr_comment").value = limitTutorComment(r?.comment || "");
     if ($("tr_final_status")) {
-      $("tr_final_status").value = r?.final_status || getLocalTutorFinalStatus(studentId, grade, b) || "";
+      $("tr_final_status").value = r?.final_status || "";
     }
   }
 
@@ -4338,6 +3759,7 @@ document.addEventListener("input", (ev) => {
 
 document.addEventListener("click", async (ev) => {
   const t = ev.target;
+  if (!sessionUser) return;
 
   if (t?.id === "btnPrint") {
     printCurrentReport();
@@ -4346,9 +3768,9 @@ document.addEventListener("click", async (ev) => {
 
   if (t?.closest("#changePasswordForm") && t.tagName === "BUTTON") {
     ev.preventDefault();
-    const currentPass = ($("currentPass")?.value || "").trim();
-    const newPass = ($("newPass")?.value || "").trim();
-    const newPass2 = ($("newPass2")?.value || "").trim();
+    const currentPass = ($("currentPass")?.value || "");
+    const newPass = ($("newPass")?.value || "");
+    const newPass2 = ($("newPass2")?.value || "");
 
     if (!currentPass || !newPass || !newPass2) return toast("Completa las tres contraseñas.", "err");
     if (newPass !== newPass2) return toast("La nueva contraseña no coincide.", "err");
@@ -4356,49 +3778,11 @@ document.addEventListener("click", async (ev) => {
     const passError = validatePassword(newPass);
     if (passError) return toast(passError, "err");
 
-    if (sessionUser.role === "director") {
-      const profile = getDirectorAccount(sessionUser.email);
-      if (!profile) return toast("No se encontró tu cuenta de Dirección.", "err");
-      const ok = await verifyStoredPassword(currentPass, profile);
-      if (!ok) {
-        await recordAudit("password_change_failed", { role: "director", reason: "current_password" });
-        return toast("Contraseña actual incorrecta.", "err");
-      }
-      const result = await saveDirectorPassword(newPass);
-      if (result.error) return toast(result.error.message || "No se pudo guardar.", "err");
-      sessionUser.must_change_password = false;
-      await recordAudit("password_changed", { role: "director", credential_mode: result.mode || "supabase" });
-      await loadAll(true);
-      toast("Contraseña actualizada");
-      render();
-      return;
-    }
-
-    const teacher = activeTeacherUsers().find(
-      (x) => (x.email || "").toLowerCase() === (sessionUser.email || "").toLowerCase()
-    );
-    if (!teacher) return toast("No se encontró tu cuenta.", "err");
-
-    const secured = mergeTeacherSecurity(teacher);
-    const ok = await verifyStoredPassword(currentPass, secured);
-    if (!ok) {
-      await recordAudit("password_change_failed", { role: "teacher", email: sessionUser.email, reason: "current_password" });
-      return toast("Contraseña actual incorrecta.", "err");
-    }
-
-    const payload = await makePasswordPayload(newPass, false);
-    const result = await persistTeacherSecurity(secured, payload);
-    if (result.error) return toast(result.error.message || "No se pudo guardar.", "err");
-
-    sessionUser.must_change_password = false;
-    await recordAudit("password_changed", {
-      role: "teacher",
-      email: sessionUser.email,
-      credential_mode: result.mode || "supabase",
-    });
-    await loadAll(true);
-    toast("Contraseña actualizada");
-    render();
+    const result = await accountAction({ action: "change_password", currentPassword: currentPass, password: newPass });
+    if (result.error) return toast(result.error.message, "err");
+    clearAcademicSession();
+    try { await sb.auth.signOut({ scope: "local" }); } catch {}
+    toast("Contraseña actualizada. Ingresa con tu nueva clave.");
     return;
   }
 
@@ -4538,7 +3922,7 @@ document.addEventListener("click", async (ev) => {
     ev.preventDefault();
     const name = ($("tName")?.value || "").trim().replace(/\s+/g, " ");
     const email = ($("tEmail")?.value || "").trim().toLowerCase();
-    const manualPass = ($("tPass")?.value || "").trim();
+    const manualPass = ($("tPass")?.value || "");
     if (!name || !email) return;
     const nameError = validatePersonName(name, "El nombre del docente");
     if (nameError) return toast(nameError, "err");
@@ -4553,28 +3937,8 @@ document.addEventListener("click", async (ev) => {
     const passError = validatePassword(tempPassword);
     if (passError) return toast(passError, "err");
 
-    const security = await makePasswordPayload(tempPassword, true);
-    let res = await sb.from("users").insert([
-      {
-        name,
-        email,
-        role: "teacher",
-        assignments: [],
-        ...security,
-        at: new Date().toISOString(),
-      },
-    ]);
-
-    let mode = "supabase";
-    if (res.error && isSchemaColumnError(res.error)) {
-      res = await sb.from("users").insert([
-        { name, email, role: "teacher", assignments: [], at: new Date().toISOString() },
-      ]);
-      if (!res.error) {
-        saveLocalTeacherCredential(email, security);
-        mode = "local";
-      }
-    }
+    const res = await accountAction({ action: "create_teacher", name, email, password: tempPassword });
+    const mode = "supabase";
 
     if (res.error) return toast(res.error.message, "err");
 
@@ -4594,7 +3958,7 @@ document.addEventListener("click", async (ev) => {
   if (t?.dataset?.delTeacher) {
     const id = t.dataset.delTeacher;
     const teacher = activeTeacherUsers().find((x) => String(x.id) === String(id));
-    const res = await sb.from("users").delete().eq("id", id);
+    const res = await accountAction({ action: "delete_teacher", id });
     if (res.error) return toast(res.error.message, "err");
     await recordAudit("teacher_deleted", { email: teacher?.email || id });
     await loadAll(true);
@@ -4609,8 +3973,7 @@ document.addEventListener("click", async (ev) => {
     if (!teacher) return toast("Docente no encontrado.", "err");
 
     const tempPassword = randomToken(12);
-    const security = await makePasswordPayload(tempPassword, true);
-    const result = await persistTeacherSecurity(teacher, security);
+    const result = await accountAction({ action: "reset_teacher", id, password: tempPassword });
     if (result.error) return toast(result.error.message || "No se pudo resetear.", "err");
 
     state.generatedCredential = {
@@ -4634,11 +3997,7 @@ document.addEventListener("click", async (ev) => {
     if (!teacher) return toast("Docente no encontrado.", "err");
 
     const nextStatus = isTeacherBlocked(teacher) ? "active" : "blocked";
-    const result = await persistTeacherSecurity(teacher, {
-      status: nextStatus,
-      failed_attempts: 0,
-      locked_until: null,
-    });
+    const result = await accountAction({ action: "set_status", id, status: nextStatus });
     if (result.error) return toast(result.error.message || "No se pudo actualizar.", "err");
 
     await recordAudit("teacher_status_changed", {
@@ -4671,7 +4030,7 @@ document.addEventListener("click", async (ev) => {
     assigns.push({ grade: g, course: c });
 
     const up = await sb
-      .from("users")
+      .from("kwc_staff")
       .update({ assignments: assigns, at: new Date().toISOString() })
       .eq("id", teacherId);
     if (up.error) return toast(up.error.message, "err");
@@ -4696,7 +4055,7 @@ document.addEventListener("click", async (ev) => {
     assigns.splice(idx, 1);
 
     const up = await sb
-      .from("users")
+      .from("kwc_staff")
       .update({ assignments: assigns, at: new Date().toISOString() })
       .eq("id", teacherId);
     if (up.error) return toast(up.error.message, "err");
@@ -4708,148 +4067,19 @@ document.addEventListener("click", async (ev) => {
     return;
   }
 
-  /* Guardar notas + conclusiones por competencia (docente) */
-  if (t?.dataset?.saveSt) {
-    if (state.config.locked) return toast("Bloqueo activo.", "err");
-    if (sessionUser.role !== "teacher") return toast("Solo docentes.", "err");
-    if (!state.teacherCourse) return toast("Selecciona un curso.", "err");
-
-    const studentId = t.dataset.saveSt;
-    const grade = state.grade;
-    const course = normalizeCourseForGrade(state.teacherCourse, grade);
-    const bimestre = state.config.bimestre || "I BIMESTRE";
-    const comps = competenciasPorCurso(course, grade);
-
-    // 1) MARKS
-    const markRows = comps.map((_, idx) => {
-      const id = makeMarkId(studentId, grade, course, bimestre, idx);
-      const nl = $(`mk_${id}`)?.value ?? "";
-      return {
-        id,
-        studentId: String(studentId),
-        grade,
-        course,
-        bimestre,
-        compIndex: Number(idx),
-        nl,
-        updatedBy: sessionUser.email,
-        at: new Date().toISOString(),
-      };
-    });
-
-    const upMarks = await sb.from("marks").upsert(markRows, { onConflict: "id" });
-    if (upMarks.error) return toast(upMarks.error.message, "err");
-
-    // 2) COMPETENCY DESC
-    const descRows = comps.map((_, idx) => {
-      const descEl = $(`cd_${studentId}_${idx}`);
-      const desc = limitCommentText(descEl?.value ?? "");
-      if (descEl) descEl.value = desc;
-      return {
-        student_id: String(studentId),
-        grade,
-        course,
-        bimestre,
-        comp_index: Number(idx),
-        desc,
-        updated_by: sessionUser.email,
-        at: new Date().toISOString(),
-      };
-    });
-
-    const upDesc = await sb
-      .from("competency_desc")
-      .upsert(descRows, { onConflict: "student_id,grade,course,bimestre,comp_index" });
-    if (upDesc.error) return toast(upDesc.error.message, "err");
-
-    await recordAudit("marks_saved", { student_id: studentId, grade, course, bimestre, competencies: comps.length });
-    await loadAll(true);
-    toast("Notas + conclusiones guardadas");
-    render();
+  /* Notas y conclusiones se confirman en una sola transaccion. */
+  const saveStudent = t?.closest?.("[data-save-st]");
+  if (saveStudent) {
+    if (sessionUser?.role !== "teacher") return toast("Solo docentes.", "err");
+    if (state.config.locked) return toast("El bimestre está bloqueado.", "err");
+    await saveEvaluationForm(saveStudent);
     return;
   }
 
   /* Guardar libreta editada (Directora) */
   if (t?.id === "saveDirectorLibreta") {
-    if (sessionUser.role !== "director") return toast("Solo directora.", "err");
-
-    const studentId = String(state.editorStudentId || $("dirEditStudent")?.value || "");
-    const grade = state.grade;
-    const course = normalizeCourseForGrade(state.editorCourse || $("dirEditCourse")?.value || "", grade);
-    const bimestre = state.editorBimestre || $("dirEditBim")?.value || state.config.bimestre || "I BIMESTRE";
-    if (!studentId || !course) return toast("Selecciona alumno y curso.", "err");
-
-    const comps = competenciasPorCurso(course, grade);
-    const hasTutorEditor = !!$("dir_tr_comment");
-
-    if (comps.length) {
-      const markRows = comps.map((_, idx) => {
-        const id = makeMarkId(studentId, grade, course, bimestre, idx);
-        return {
-          id,
-          studentId,
-          grade,
-          course,
-          bimestre,
-          compIndex: Number(idx),
-          nl: $(`dir_mk_${idx}`)?.value ?? "",
-          updatedBy: sessionUser.email,
-          at: new Date().toISOString(),
-        };
-      });
-
-      const upMarks = await sb.from("marks").upsert(markRows, { onConflict: "id" });
-      if (upMarks.error) return toast(upMarks.error.message, "err");
-
-      const descRows = comps.map((_, idx) => {
-        const descEl = $(`dir_cd_${idx}`);
-        const desc = limitCommentText(descEl?.value ?? "");
-        if (descEl) descEl.value = desc;
-        return {
-          student_id: studentId,
-          grade,
-          course,
-          bimestre,
-          comp_index: Number(idx),
-          desc,
-          updated_by: sessionUser.email,
-          at: new Date().toISOString(),
-        };
-      });
-
-      const upDesc = await sb
-        .from("competency_desc")
-        .upsert(descRows, { onConflict: "student_id,grade,course,bimestre,comp_index" });
-      if (upDesc.error) return toast(upDesc.error.message, "err");
-    }
-
-    if (hasTutorEditor) {
-      const tutorPayload = buildTutorReportPayloadFromForm(
-        "dir_tr",
-        studentId,
-        grade,
-        bimestre,
-        sessionUser.email
-      );
-      const upTutor = await persistTutorReportPayload(tutorPayload);
-      if (upTutor.error) return toast(upTutor.error.message, "err");
-    }
-
-    if (!comps.length && !hasTutorEditor) {
-      return toast("Este curso no tiene competencias configuradas.", "err");
-    }
-
-    await recordAudit("director_report_card_edited", {
-      student_id: studentId,
-      grade,
-      course,
-      bimestre,
-      competencies: comps.length,
-      tutor_section: hasTutorEditor,
-    });
-    await loadAll(true);
-    toast(hasTutorEditor ? "Libreta y tutoría actualizadas" : "Libreta actualizada");
-    render();
+    if (sessionUser?.role !== "director") return toast("Solo Dirección.", "err");
+    await saveEvaluationForm(t, true);
     return;
   }
 

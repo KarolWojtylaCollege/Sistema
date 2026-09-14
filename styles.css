@@ -1643,3 +1643,14 @@ table:not(.report-main):not(.report-head):not(.official-bottom-table):not(.offic
     align-items:flex-start;
   }
 }
+.save-error-message {
+  max-width: 28rem;
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #a32030;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+button:disabled { cursor: wait; opacity: .65; }
