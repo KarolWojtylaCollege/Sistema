@@ -292,7 +292,7 @@ function cursosPorGrado(grado) {
 
 function fixMojibake(value) {
   return String(value || "")
-    .replace(/Ã|Ã�/g, "Á")
+    .replace(/Ã|Ã /g, "Á")
     .replace(/Ã‰/g, "É")
     .replace(/Ã/g, "Í")
     .replace(/Ã“/g, "Ó")
@@ -3177,6 +3177,8 @@ function renderOfficialBottomBox(st, grade) {
 
   return `
     <div class="official-bottom-box">
+      <div class="official-scale-block">
+      <p class="official-nla-note"><strong>NLA(*): Nivel de logro alcanzado.</strong> El presente informe de progreso o libreta de notas, no muestra las calificaciones que el estudiante obtuviera después del periodo de recuperación, siendo el periodo de recuperación posterior al término del año lectivo.</p>
       <table class="official-scale-table">
         <colgroup>
           <col class="official-scale-code-col">
@@ -3213,6 +3215,7 @@ function renderOfficialBottomBox(st, grade) {
         </tbody>
       </table>
 
+      </div>
       <div class="official-footer-grid">
         <table class="official-eval-table">
           <colgroup>
@@ -3249,7 +3252,7 @@ function renderOfficialBottomBox(st, grade) {
             <tr>
               <th rowspan="2">BIMESTRES</th>
               <th colspan="2">Inasistencias</th>
-              <th colspan="2">Tardanzas (Al Colegio)</th>
+              <th colspan="2">Tardanzas</th>
             </tr>
             <tr>
               <th>Justificadas</th>
@@ -3285,7 +3288,7 @@ function renderOfficialBottomBox(st, grade) {
       </table>
 
       <div class="official-legal-note">
-        (*) El presente informe de progreso o libreta de notas, no muestra las calificaciones que el estudiante obtuviera después del periodo de recuperación, siendo el periodo de recuperación posterior al término del año lectivo. (**) En los cursos talleres, el calificativo que figurará en el certificado oficial de estudio, lo determina el Sistema del Ministerio de Educación (SIAGIE).
+        (**) En los cursos talleres, el calificativo que figurará en el certificado oficial de estudio, lo determina el Sistema del Ministerio de Educación (SIAGIE).
       </div>
 
       <table class="official-final-status-table">
@@ -3299,6 +3302,7 @@ function renderOfficialBottomBox(st, grade) {
         PRO (para promovido de grado), RR (para requiere recuperación), PER (para permanencia en el grado)
       </div>
 
+      <div class="official-page-footer">
       <table class="official-sign-table">
         <tr>
           <td>
@@ -3315,11 +3319,6 @@ function renderOfficialBottomBox(st, grade) {
             <div class="official-sign-space">
               <div class="official-sign-assets official-sign-assets-director">
                 ${optionalAsset("sello-directora.png", "Sello de Dirección", "official-stamp-img")}
-                <div class="official-stamp-fallback">
-                  <span>I.E.P.</span>
-                  <strong>KAROL WOJTYLA</strong>
-                  <span>DIRECCIÓN</span>
-                </div>
                 ${optionalAsset("firma-directora.png", "Firma de la directora", "official-signature-img official-signature-img-director")}
               </div>
             </div>
@@ -3329,7 +3328,7 @@ function renderOfficialBottomBox(st, grade) {
           </td>
         </tr>
       </table>
-      <div class="official-motto">“Wojtylianos, un camino a seguir con fe, entusiasmo y responsabilidad”</div>
+      </div>
     </div>
   `;
 }
@@ -3351,6 +3350,10 @@ function renderReport() {
     return;
   }
   const selectedBim = state.reportCardBimestre || state.config.bimestre || "I BIMESTRE";
+  box.innerHTML = buildReportSheet(st, grade, selectedBim);
+}
+
+function buildReportSheet(st, grade, selectedBim) {
   const cursos = cursosPorGrado(grade);
   const fecha = new Date().toLocaleDateString("es-PE");
 
@@ -3446,11 +3449,12 @@ function renderReport() {
 
   const tutorName = getTutorNameForGrade(grade);
 
-  box.innerHTML = `
+  return `
     <div class="report-sheet">
       <div class="report-header">
         <div class="report-insignia">
           <img src="${escapeHtml(insigniaSrc)}" alt="Insignia Karol Wojtyla College" onerror="this.style.display='none'">
+          <div class="report-insignia-motto">Un camino a seguir...</div>
         </div>
         <div class="report-heading">
           <div class="report-topline">"${escapeHtml(OFFICIAL_YEAR_PHRASE)}"</div>
@@ -3498,19 +3502,19 @@ function renderReport() {
         </colgroup>
         <thead>
           <tr>
-            <th style="width:140px;">ÁREAS</th>
-            <th class="report-comp">COMPETENCIAS</th>
+            <th rowspan="2">ÁREAS</th>
+            <th class="report-comp" rowspan="2">COMPETENCIAS</th>
             <th colspan="4">BIMESTRES</th>
-            <th class="report-desc">CONCLUSIONES DESCRIPTIVAS</th>
-            <th class="report-nla">NLA(*)</th>
+            <th class="report-desc" rowspan="2">CONCLUSIONES DESCRIPTIVAS</th>
+            <th class="report-nla" rowspan="2">NLA(*)</th>
           </tr>
           <tr>
-            <th></th><th></th>
+            
             <th class="report-bim">I</th>
             <th class="report-bim">II</th>
             <th class="report-bim">III</th>
             <th class="report-bim">IV</th>
-            <th></th><th></th>
+            
           </tr>
         </thead>
         <tbody>
@@ -3524,112 +3528,18 @@ function renderReport() {
 }
 
 
-function printCurrentReport() {
+async function printCurrentReport() {
   const sheet = document.querySelector("#reportBox .report-sheet");
-  if (!sheet) return toast("Primero selecciona una libreta.", "err");
-
-  const cloned = sheet.cloneNode(true);
-  const w = window.open("", "_blank", "width=900,height=700");
-  if (!w) {
-    toast("Permite ventanas emergentes para imprimir.", "err");
-    return;
-  }
-
-  w.document.open();
-  w.document.write(`<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Libreta - ${escapeHtml(document.querySelector("#repStudent option:checked")?.textContent || "Alumno")}</title>
-<style>
-  @page{ size:A4 portrait; margin:6mm; }
-  *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  html,body{ margin:0; padding:0; background:#fff; color:#000; font-family:Arial, Helvetica, sans-serif; }
-  .report-sheet{ width:198mm; margin:0 auto; padding:0; background:#fff; color:#000; font-family:Arial, Helvetica, sans-serif; }
-  .report-header{ display:grid; grid-template-columns:14mm 1fr 14mm; align-items:center; gap:2mm; margin-bottom:2mm; }
-  .report-insignia{ width:13mm; height:13mm; display:flex; align-items:center; justify-content:center; justify-self:start; }
-  .report-insignia img{ width:100%; height:100%; object-fit:contain; display:block; }
-  .report-heading{ min-width:0; text-align:center; }
-  .report-header-spacer{ width:13mm; height:1px; justify-self:end; }
-  .report-topline{ text-align:center; font-size:8.5px; margin:0 0 1mm; }
-  .report-title{ text-align:center; font-weight:900; font-size:12px; margin:0; letter-spacing:.2px; }
-  .report-view-bim{ text-align:center; font-size:7px; margin-top:.4mm; font-weight:700; }
-  table{ border-collapse:collapse; table-layout:fixed; width:100%; }
-  .report-head{ font-size:8.2px; margin-bottom:2mm; }
-  .report-head td{ border:1px solid #000; padding:2.4px 3px; vertical-align:top; }
-  .report-head .label{ font-weight:900; font-size:7.3px; display:block; }
-  .report-head .value{ font-weight:800; display:block; word-break:break-word; }
-  .report-main{ font-size:7.35px; line-height:1.03; }
-  .report-main col.col-area{ width:20mm; }
-  .report-main col.col-comp{ width:42mm; }
-  .report-main col.col-bim{ width:6.5mm; }
-  .report-main col.col-desc{ width:95mm; }
-  .report-main col.col-nla{ width:8mm; }
-  .report-main th,.report-main td{ border:1px solid #000; padding:1.8px 2.4px; vertical-align:top; }
-  .report-main thead th{ background:#e5e7eb; text-align:center; font-weight:900; line-height:1.04; white-space:normal; }
-  .report-section-header th{ background:#e5e7eb; text-align:center; font-weight:900; line-height:1.04; white-space:normal; vertical-align:middle; }
-  .report-area{ width:20mm !important; font-weight:900; text-transform:uppercase; text-align:center; vertical-align:middle !important; font-size:6.7px; }
-  .report-comp{ width:42mm !important; word-break:break-word; overflow-wrap:anywhere; }
-  .report-bim{ width:6.5mm !important; min-width:6.5mm !important; max-width:6.5mm !important; text-align:center; font-weight:900; vertical-align:middle !important; padding:.6px !important; }
-  .report-desc{ width:95mm !important; white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; }
-  .report-nla{ width:8mm !important; min-width:8mm !important; max-width:8mm !important; text-align:center; font-weight:900; vertical-align:middle !important; padding:.6px !important; }
-  .official-bottom-box{ margin-top:1.6mm; border:0; break-inside:avoid; page-break-inside:avoid; }
-  .official-scale-table{ width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #000; font-size:5.7px; line-height:1.02; }
-  .official-scale-table col.official-scale-code-col{ width:6.5mm; }
-  .official-scale-table col.official-scale-label-col{ width:30mm; }
-  .official-scale-table th,.official-scale-table td{ border:1px solid #000; padding:1px 1.6px; vertical-align:middle; }
-  .official-scale-table th{ background:#cfcfcf; text-align:center; font-weight:900; font-size:6.4px; }
-  .official-scale-code{ text-align:center; font-weight:700; }
-  .official-scale-label{ font-size:7.1px; font-weight:400; }
-  .official-scale-desc{ font-size:5.45px; line-height:1.05; }
-  .official-footer-grid{ display:grid; grid-template-columns:.45fr .55fr; gap:3mm; margin-top:3mm; }
-  .official-eval-table,.official-attendance-table,.official-comment-table{ width:100%; border-collapse:collapse; table-layout:fixed; }
-  .official-eval-table,.official-attendance-table{ font-size:6.2px; line-height:1.02; }
-  .official-eval-table th,.official-eval-table td,.official-attendance-table th,.official-attendance-table td{ border:1px solid #000; padding:1.2px 1.5px; vertical-align:middle; }
-  .official-eval-table th,.official-attendance-table th,.official-comment-table th,.official-subtitle-row th{ background:#cfcfcf; text-align:center; font-weight:900; }
-  .official-eval-label{ text-align:left; font-weight:400; }
-  .official-mini-col{ width:5.4mm; }
-  .official-small-cell{ width:5.4mm; text-align:center; font-weight:800; }
-  .official-attendance-table td{ text-align:center; }
-  .official-comment-table{ margin-top:3mm; font-size:7.7px; }
-  .official-comment-table th,.official-comment-table td{ border:1px solid #000; padding:1.8px 2px; vertical-align:middle; }
-  .official-comment-table col.official-comment-bim-col{ width:8mm; }
-  .official-comment-table tbody th{ width:8mm; background:#cfcfcf; font-size:7px; }
-  .official-comment-table tbody td{ height:10mm; white-space:pre-wrap; font-size:7.5px; line-height:1.12; }
-  .official-legal-note{ padding:1.6px 2.5px; font-size:5.9px; line-height:1.05; }
-  .official-final-status-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:7px; }
-  .official-final-status-table td{ border:1px solid #000; padding:3px 4px; vertical-align:middle; }
-  .official-final-title{ width:42%; text-align:center; font-weight:900; font-size:9.5px; }
-  .official-final-value{ width:9%; text-align:center; font-weight:900; font-size:9.5px; }
-  .official-final-blank{ width:49%; text-align:left; font-weight:800; font-size:7px; }
-  .official-final-legend{ font-size:5.9px; line-height:1.05; padding:1.4px 2.5px 2px; }
-  .official-sign-table{ width:82%; margin:5mm auto 0; border-collapse:collapse; table-layout:fixed; font-size:7px; }
-  .official-sign-table td{ text-align:center; padding:4px 5mm 1px; border:0; }
-  .official-sign-space{ height:12mm; position:relative; display:flex; align-items:flex-end; justify-content:center; }
-  .official-sign-assets{ position:relative; width:100%; height:100%; }
-  .official-signature-img{ position:absolute; left:50%; bottom:-.8mm; max-width:76%; max-height:11mm; object-fit:contain; transform:translateX(-50%); }
-  .official-signature-img-director{ left:58%; max-width:58%; max-height:10mm; }
-  .official-stamp-img,
-  .official-stamp-fallback{ position:absolute; left:22%; bottom:0; width:10mm; height:10mm; transform:rotate(-7deg); }
-  .official-stamp-img{ object-fit:contain; }
-  .official-stamp-fallback{ border:.45mm solid #1d4ed8; border-radius:999px; color:#1d4ed8; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2mm; font-size:1.05mm; font-weight:900; line-height:1; letter-spacing:.02em; opacity:.92; }
-  .official-stamp-fallback strong{ font-size:1.12mm; }
-  .official-sign-line{ border-top:1px solid #000; width:82%; margin:0 auto 2px; }
-  .official-sign-name{ font-size:7px; line-height:1.1; min-height:12px; }
-  .official-sign-table b{ display:block; margin-top:2px; font-size:7.2px; }
-  .official-motto{ margin-top:3mm; text-align:center; font-size:6.7px; font-style:italic; font-weight:700; letter-spacing:.02em; }
-  tr{ break-inside:avoid; page-break-inside:avoid; }
-  @media screen{ body{ padding:12px; background:#e5e7eb; } .report-sheet{ background:#fff; padding:0; box-shadow:0 8px 40px rgba(0,0,0,.18); } }
-</style>
-</head>
-<body></body>
-</html>`);
-  w.document.body.appendChild(cloned);
+  if (!sheet) return;
+  const w = window.open("", "_blank", "width=1000,height=800");
+  if (!w) return toast("Permite ventanas emergentes para imprimir.", "err");
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Libreta</title><link rel="stylesheet" href="'+new URL('libreta.css',location.href).href+'"></head><body><div id="reportBox"></div></body></html>');
   w.document.close();
-  setTimeout(() => {
-    w.focus();
-    w.print();
-  }, 350);
+  w.document.getElementById('reportBox').appendChild(sheet.cloneNode(true));
+  await new Promise(resolve => { if(w.document.readyState === 'complete') resolve(); else w.addEventListener('load',resolve,{once:true}); });
+  await Promise.all([...w.document.images].map(img => img.decode().catch(()=>{})));
+  await w.document.fonts.ready;
+  w.focus(); w.print();
 }
 
 /* ====== EVENTOS ====== */
@@ -4113,4 +4023,15 @@ document.addEventListener("click", async (ev) => {
     render();
     return;
   }
+});
+/* Ajustar la hoja completa al ancho disponible sin alterar la composición A4. */
+function fitReportToScreen() {
+  const box = document.getElementById('reportBox');
+  const sheet = box?.querySelector('.report-sheet');
+  if(sheet) sheet.style.zoom = String(Math.min(1, box.clientWidth / (210 * 96 / 25.4)));
+}
+window.addEventListener('resize', fitReportToScreen);
+window.addEventListener('load', () => {
+  new MutationObserver(fitReportToScreen).observe(document.getElementById('app-root'), {childList:true,subtree:true});
+  fitReportToScreen();
 });

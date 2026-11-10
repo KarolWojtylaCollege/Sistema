@@ -1,0 +1,64 @@
+/* Una misma composición para pantalla y PDF. */
+#reportBox{overflow-x:auto;padding:16px 0 28px;}
+.report-sheet,.report-sheet *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.report-sheet{--navy:#142f54;--line:#7c8ca2;position:relative;isolation:isolate;width:210mm;min-height:297mm;margin:0 auto;padding:6mm 6mm 9mm;background:white;color:#101721;font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.12;box-shadow:0 8px 40px #142f541c;overflow:hidden;}
+.report-sheet::before,.report-sheet::after{content:"";position:absolute;z-index:-1;width:43mm;height:14mm;background:linear-gradient(24deg,transparent 0 43%,#b58b3c 43% 45%,white 45% 49%,#213e61 49% 65%,#142f54 65% 80%,#102746 80%);}
+.report-sheet::before{right:0;top:0;}.report-sheet::after{left:0;bottom:0;transform:rotate(180deg);}
+.report-header{display:grid;grid-template-columns:44mm 1fr;gap:3mm;align-items:center;min-height:22mm;margin:0 0 3.5mm;}
+.report-insignia{width:44mm;height:20mm;display:flex;align-items:center;justify-content:center;padding-right:3mm;border-right:0;}
+.report-insignia img{width:100%;height:100%;object-fit:contain;}
+.report-header-spacer{display:none;}.report-heading{text-align:center;padding-right:2mm;}
+.report-topline{font-size:9px;font-style:italic;font-weight:600;min-height:3mm;margin:0 0 2mm;}
+.report-title{font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:1.1;font-weight:bold;color:#102c51;margin:0 0 1.8mm;}
+.report-view-bim{background:var(--navy);color:white;border-radius:5px;font-family:Georgia,'Times New Roman',serif;font-size:14px;font-weight:bold;padding:3px 9px;display:inline-block;min-width:80%;}
+.report-sheet table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;border:1px solid var(--line);border-radius:5px;overflow:hidden;margin:0;color:inherit;}
+.report-sheet th,.report-sheet td{border:0;border-right:.5px solid var(--line);border-bottom:.5px solid var(--line);padding:2px 4px;vertical-align:middle;font-size:inherit;line-height:inherit;overflow-wrap:break-word;}
+.report-sheet tr>:last-child{border-right:0;}.report-sheet tbody tr:last-child>td,.report-sheet tbody tr:last-child>th{border-bottom:0;}
+.report-sheet thead th{background:var(--navy);color:white;text-align:center;font-weight:700;}
+.report-sheet .report-head{margin-bottom:3mm;font-size:10px;}
+.report-head td{padding:0;vertical-align:top;}.report-head td:nth-child(1){width:16%!important;}.report-head td:nth-child(2){width:24%!important;}.report-head td:nth-child(3){width:20%!important;}.report-head td:nth-child(4){width:26%!important;}.report-head td:nth-child(5){width:14%!important;}
+.report-head .label{display:block;background:var(--navy);color:white;padding:3px 12px;font-size:9px;font-weight:bold;}
+.report-head .value{display:block;font-weight:bold;padding:5px 12px;min-height:26px;}
+.report-main{font-size:8px;line-height:1.12;}
+.report-main .col-area{width:14%;}.report-main .col-comp{width:24.5%;}.report-main .col-bim{width:3.5%;}.report-main .col-desc{width:42%;}.report-main .col-nla{width:5.5%;}
+.report-main .report-comp,.report-main .report-desc,.report-main .report-area,.report-main .report-bim,.report-main .report-nla{width:auto!important;min-width:0!important;max-width:none!important;}
+.report-main thead th{font-size:9px;padding:2px;}.report-main thead tr:last-child th{background:#dce2e9;color:#102746;font-size:8px;padding:0 2px;}
+.report-main .report-area{background:linear-gradient(110deg,#e2e7ed,#d3dbe5);color:#102746;text-align:center;font-size:10px;font-weight:800;}
+.report-main .report-bim,.report-main .report-nla{text-align:center;font-weight:bold;}
+.report-main .report-desc{white-space:pre-wrap;}.report-main tbody td{padding:3px 4px;}
+.report-main .report-section-header th{background:#d9e1eb;color:#102746;text-align:center;font-weight:bold;}
+.official-bottom-box{margin-top:3mm;}
+.official-scale-table{font-size:7.5px;line-height:1.1;}.official-scale-table thead th{font-size:10px;padding:3px;}.official-scale-code-col{width:6%;}.official-scale-label-col{width:25%;}.official-scale-code{text-align:center;font-weight:bold;background:#e2e7ed;}.official-scale-label{font-size:8px;}
+.official-footer-grid{display:grid;grid-template-columns:1fr 1.06fr;gap:5mm;margin-top:3mm;align-items:stretch;}
+.official-eval-table,.official-attendance-table{font-size:8px;line-height:1.1;}.official-eval-table th,.official-attendance-table th{font-weight:bold;}.official-eval-table .official-mini-col{width:6.4%;}.official-eval-table td{padding:2px 3px;}
+.official-small-cell,.official-attendance-table td{text-align:center;font-weight:bold;}.official-eval-label{text-align:left;font-weight:normal;}
+.official-subtitle-row th,.official-eval-table thead tr:nth-child(2) th,.official-attendance-table thead tr:nth-child(2) th{background:#d9e0e9;color:#102746;}
+.official-attendance-table tbody th{background:#d9e0e9;color:#102746;}
+.official-comment-table{margin-top:3mm!important;font-size:8px;line-height:1.2;}.official-comment-table thead th{font-size:11px;padding:3px;}.official-comment-bim-col{width:6.3%;}.official-comment-table tbody th{background:#d9e0e9;text-align:center;color:#102746;}.official-comment-table tbody td{height:5.4mm;padding:4px 8px;white-space:pre-wrap;}
+.official-legal-note{font-size:6.6px;line-height:1.25;font-style:italic;margin:1.4mm 1mm;}
+.official-final-status-table{font-size:9px;margin-top:2mm!important;}.official-final-title{width:38%;background:var(--navy);color:white;font-weight:bold;text-align:center;}.official-final-value{width:12%;text-align:center;font-weight:bold;}.official-final-blank{width:50%;}
+.official-final-legend{font-size:6.5px;margin:1mm;}
+.report-sheet .official-sign-table{width:84%;margin:2.5mm auto 0;border:0;border-radius:0;text-align:center;font-size:9px;}.report-sheet .official-sign-table td{border:0;padding:0 8mm;}
+.official-sign-space{height:14mm;position:relative;}.official-sign-assets{position:absolute;inset:0;display:flex;justify-content:center;align-items:flex-end;}.official-signature-img{max-height:13mm;max-width:65%;object-fit:contain;}.official-stamp-img{height:14mm;width:14mm;object-fit:contain;}.official-sign-line{border-top:1px solid #142f54;width:100%;margin:0 auto 2px;}.official-sign-name{min-height:3mm;}.official-sign-table b{display:block;margin-top:2px;}
+@page{size:A4 portrait;margin:0;}
+@media print{html,body{margin:0!important;padding:0!important;background:white!important;}body *{visibility:hidden;}#reportBox,#reportBox *{visibility:visible;}#reportBox{position:absolute;left:0;top:0;width:210mm;margin:0;padding:0;overflow:visible;}.report-sheet{box-shadow:none;min-height:297mm;overflow:visible;}thead{display:table-header-group;}tr{break-inside:avoid;}.report-header,.official-footer-grid,.official-sign-table{break-inside:avoid;}}
+@media print{.report-sheet{zoom:1!important;}}
+
+/* Pie de firmas al final de la hoja A4, en pantalla e impresión.
+   Permanece en el flujo si los datos requieren páginas adicionales. */
+.report-sheet{display:flex;flex-direction:column;}
+.report-sheet > *{flex-shrink:0;}
+.official-bottom-box{display:flex;flex-direction:column;flex:1 0 auto;}
+.official-bottom-box > *{flex-shrink:0;}
+.official-page-footer{margin-top:auto;padding-top:4mm;break-inside:avoid;page-break-inside:avoid;}
+.official-nla-note{font-size:6.6px;line-height:1.25;margin:0 1mm 1.4mm;color:#26364a;}
+.official-scale-block{break-inside:avoid;page-break-inside:avoid;}
+@media print{.official-page-footer{break-inside:avoid;page-break-inside:avoid;}}
+/* Reservar espacio de firmas sin provocar una segunda hoja en el formato vacío. */
+.official-page-footer{padding-top:2mm;}
+.report-sheet .official-sign-table{margin-top:0;}
+
+/* Frase institucional bajo la insignia; las firmas ocupan ahora el pie libre. */
+.report-insignia{flex-direction:column;gap:1mm;}
+.report-insignia img{height:15mm;flex:0 0 15mm;}
+.report-insignia-motto{font-size:8px;line-height:1.2;font-style:italic;font-weight:bold;color:#142f54;text-align:center;white-space:nowrap;}
