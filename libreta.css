@@ -2,8 +2,8 @@
 #reportBox{overflow-x:auto;padding:16px 0 28px;}
 .report-sheet,.report-sheet *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 .report-sheet{--navy:#142f54;--line:#7c8ca2;position:relative;isolation:isolate;width:210mm;min-height:297mm;margin:0 auto;padding:6mm 6mm 9mm;background:white;color:#101721;font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:1.12;box-shadow:0 8px 40px #142f541c;overflow:hidden;}
-.report-page::before,.report-page::after{content:"";position:absolute;z-index:-1;width:43mm;height:14mm;background:linear-gradient(24deg,transparent 0 43%,#b58b3c 43% 45%,white 45% 49%,#213e61 49% 65%,#142f54 65% 80%,#102746 80%);}
-.report-page::before{right:0;top:0;}.report-page::after{left:0;bottom:0;transform:rotate(180deg);}
+.kw-libreta-page::before,.kw-libreta-page::after{content:"";position:absolute;z-index:-1;width:43mm;height:14mm;background:linear-gradient(24deg,transparent 0 43%,#b58b3c 43% 45%,white 45% 49%,#213e61 49% 65%,#142f54 65% 80%,#102746 80%);}
+.kw-libreta-page::before{right:0;top:0;}.kw-libreta-page::after{left:0;bottom:0;transform:rotate(180deg);}
 .report-header{display:grid;grid-template-columns:44mm 1fr;gap:3mm;align-items:center;min-height:22mm;margin:0 0 3.5mm;}
 .report-insignia{width:44mm;height:20mm;display:flex;align-items:center;justify-content:center;padding-right:3mm;border-right:0;}
 .report-insignia img{width:100%;height:100%;object-fit:contain;}
@@ -40,7 +40,7 @@
 .official-final-legend{font-size:6.5px;margin:1mm;}
 .report-sheet .official-sign-table{width:84%;margin:2.5mm auto 0;border:0;border-radius:0;text-align:center;font-size:9px;}.report-sheet .official-sign-table td{border:0;padding:0 8mm;}
 .official-sign-space{height:14mm;position:relative;}.official-sign-assets{position:absolute;inset:0;display:flex;justify-content:center;align-items:flex-end;}.official-signature-img{max-height:13mm;max-width:65%;object-fit:contain;}.official-stamp-img{height:14mm;width:14mm;object-fit:contain;}.official-sign-line{border-top:1px solid #142f54;width:100%;margin:0 auto 2px;}.official-sign-name{min-height:3mm;}.official-sign-table b{display:block;margin-top:2px;}
-@page{size:A4 portrait;margin:0;}
+@page{size:A4 portrait;margin:6mm;}
 @media print{html,body{margin:0!important;padding:0!important;background:white!important;}body *{visibility:hidden;}#reportBox,#reportBox *{visibility:visible;}#reportBox{position:absolute;left:0;top:0;width:210mm;margin:0;padding:0;overflow:visible;}.report-sheet{box-shadow:none;min-height:297mm;overflow:visible;}thead{display:table-header-group;}tr{break-inside:avoid;}.report-header,.official-footer-grid,.official-sign-table{break-inside:avoid;}}
 @media print{.report-sheet{zoom:1!important;}}
 
@@ -63,25 +63,27 @@
 .report-insignia img{height:15mm;flex:0 0 15mm;}
 .report-insignia-motto{font-size:8px;line-height:1.2;font-style:italic;font-weight:bold;color:#142f54;text-align:center;white-space:nowrap;}
 
-/* Dos hojas: contenido académico y cuadros complementarios con firmas al pie. */
+/* Hojas aisladas de .report-page, que pertenece al panel de reportes. */
 .report-sheet{display:block;min-height:0;padding:0;background:transparent;box-shadow:none;overflow:visible;}
-.report-page{position:relative;isolation:isolate;width:210mm;min-height:297mm;padding:6mm 6mm 9mm;background:#fff;box-shadow:0 8px 40px #142f541c;}
-.report-summary-page{display:flex;flex-direction:column;margin-top:6mm;}
-.report-summary-page > *{flex-shrink:0;}
-.report-summary-page .official-page-footer{margin-top:auto;padding-top:5mm;}
+.report-sheet > .kw-libreta-page{display:block;position:relative;isolation:isolate;width:210mm;min-height:297mm;height:auto;padding:6mm 6mm 9mm;background:#fff;box-shadow:0 8px 40px #142f541c;gap:0;}
+.report-sheet > .report-summary-page{margin-top:6mm;padding-bottom:35mm;}
+.report-sheet .report-head,.report-sheet .report-main{height:auto;min-height:0;}
+.report-sheet .report-head tr,.report-sheet .report-head td{height:auto;min-height:0;}
+.report-sheet .report-head .value{min-height:26px;}
+.report-sheet .report-summary-page .official-page-footer{position:absolute;left:6mm;right:6mm;bottom:9mm;margin:0;padding:0;break-inside:avoid;}
 .report-insignia{padding-right:0;}
-.report-insignia-motto{align-self:center;width:100%;color:#bf161c;text-align:center;}
+.report-insignia-motto{align-self:center;width:100%;padding-left:10mm;color:#bf161c;text-align:center;}
 .report-main thead tr:last-child th{background:var(--navy);color:#fff;padding:2px;border-right:.5px solid #9aaec7;border-bottom:.5px solid #9aaec7;}
 .report-main .report-section-header th{background:#254f7d;color:#fff;padding:4px 2px;border-right:.5px solid #9aaec7;border-bottom:.5px solid #9aaec7;}
-.official-nla-note{margin:-1mm 1mm 2mm;text-align:justify;text-align-last:left;}
+.official-nla-note{margin:0 1mm 2mm;text-align:justify;text-align-last:left;}
 .report-main tbody .report-comp,.report-main tbody .report-desc,.official-scale-desc,.official-comment-table tbody td,.official-legal-note{text-align:justify;text-align-last:left;hyphens:auto;}
 .report-main th,.report-head .label,.report-head .value,.official-final-blank{text-align:center;}
 .report-main thead .report-nla{vertical-align:top;padding-top:3px;}
-@media print{
-  .report-sheet{display:block;min-height:0;padding:0;overflow:visible;}
-  .report-page{box-shadow:none;margin:0;min-height:296.8mm;}
-  .report-summary-page{break-before:page;page-break-before:always;display:flex;}
-  .report-summary-page .official-page-footer{break-inside:avoid;page-break-inside:avoid;}
-}
-/* Evitar que el adorno invada la aclaración al comienzo de la segunda hoja. */
 .report-summary-page::before{display:none;}
+@media print{
+  #reportBox{width:198mm;}
+  .report-sheet{display:block;width:198mm;min-height:0;padding:0;overflow:visible;}
+  .report-sheet > .kw-libreta-page{display:block;width:198mm;min-height:284.8mm;height:auto;padding:0;box-shadow:none;margin:0;}
+  .report-sheet > .report-summary-page{break-before:page;page-break-before:always;padding-bottom:32mm;}
+  .report-sheet .report-summary-page .official-page-footer{position:absolute;left:0;right:0;bottom:3mm;margin:0;padding:0;break-inside:avoid;page-break-inside:avoid;}
+}

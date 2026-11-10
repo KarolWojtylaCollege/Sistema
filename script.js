@@ -3176,7 +3176,7 @@ function renderOfficialBottomBox(st, grade) {
   `;
 
   return `
-    <div class="official-bottom-box report-page report-summary-page">
+    <div class="official-bottom-box kw-libreta-page report-summary-page">
       <div class="official-scale-block">
       <p class="official-nla-note"><strong>NLA(*): Nivel de logro alcanzado.</strong> El presente informe de progreso o libreta de notas, no muestra las calificaciones que el estudiante obtuviera después del periodo de recuperación, siendo el periodo de recuperación posterior al término del año lectivo.</p>
       <table class="official-scale-table">
@@ -3451,7 +3451,7 @@ function buildReportSheet(st, grade, selectedBim) {
 
   return `
     <div class="report-sheet">
-      <div class="report-page report-academic-page">
+      <div class="kw-libreta-page report-academic-page">
       <div class="report-header">
         <div class="report-insignia">
           <img src="${escapeHtml(insigniaSrc)}" alt="Insignia Karol Wojtyla College" onerror="this.style.display='none'">
