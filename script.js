@@ -3135,13 +3135,50 @@ function renderAuditoria() {
 
 /* ====== REPORTE ====== */
 
+function renderReportSignatures(grade) {
+  const tutorName = getTutorNameForGrade(grade);
+  const directorName = DIRECTOR_DISPLAY_NAME;
+  const optionalAsset = (src, alt, className) => `
+    <img class="${className}" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"
+      onload="this.dataset.loaded='1'; if(this.nextElementSibling && this.nextElementSibling.classList.contains('official-stamp-fallback')) this.nextElementSibling.remove();"
+      onerror="this.remove()">
+  `;
+  return `
+      <div class="official-page-footer">
+      <table class="official-sign-table">
+        <tr>
+          <td>
+            <div class="official-sign-space">
+              <div class="official-sign-assets official-sign-assets-tutor">
+                ${optionalAsset("firma-tutor.png", "Firma del tutor(a)", "official-signature-img official-signature-img-tutor")}
+              </div>
+            </div>
+            <div class="official-sign-line"></div>
+            <div class="official-sign-name">${escapeHtml(tutorName)}</div>
+            <b>TUTOR (A)</b>
+          </td>
+          <td>
+            <div class="official-sign-space">
+              <div class="official-sign-assets official-sign-assets-director">
+                ${optionalAsset("sello-directora.png", "Sello de Dirección", "official-stamp-img")}
+                ${optionalAsset("firma-directora.png", "Firma de la directora", "official-signature-img official-signature-img-director")}
+              </div>
+            </div>
+            <div class="official-sign-line"></div>
+            <div class="official-sign-name">${escapeHtml(directorName)}</div>
+            <b>DIRECTORA</b>
+          </td>
+        </tr>
+      </table>
+      </div>
+  `;
+}
+
 function renderOfficialBottomBox(st, grade) {
   const bims = ["I BIMESTRE", "II BIMESTRE", "III BIMESTRE", "IV BIMESTRE"];
   const labels = ["I", "II", "III", "IV"];
   const finalStatus = String(getTutorFinalStatus(st.id, grade) || "").trim().toUpperCase();
   const finalStatusText = finalStatusMeaning(finalStatus);
-  const tutorName = getTutorNameForGrade(grade);
-  const directorName = DIRECTOR_DISPLAY_NAME;
   const field = (bim, key, defVal = "") => escapeHtml(getTutorField(st.id, grade, bim, key, defVal));
   const total = (key) =>
     bims.reduce((sum, bim) => sum + Number(getTutorField(st.id, grade, bim, key, 0) || 0), 0);
@@ -3169,11 +3206,7 @@ function renderOfficialBottomBox(st, grade) {
       </tr>
     `)
     .join("");
-  const optionalAsset = (src, alt, className) => `
-    <img class="${className}" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"
-      onload="this.dataset.loaded='1'; if(this.nextElementSibling && this.nextElementSibling.classList.contains('official-stamp-fallback')) this.nextElementSibling.remove();"
-      onerror="this.remove()">
-  `;
+
 
   return `
     <div class="official-bottom-box kw-libreta-page report-summary-page">
@@ -3302,33 +3335,7 @@ function renderOfficialBottomBox(st, grade) {
         PRO (para promovido de grado), RR (para requiere recuperación), PER (para permanencia en el grado)
       </div>
 
-      <div class="official-page-footer">
-      <table class="official-sign-table">
-        <tr>
-          <td>
-            <div class="official-sign-space">
-              <div class="official-sign-assets official-sign-assets-tutor">
-                ${optionalAsset("firma-tutor.png", "Firma del tutor(a)", "official-signature-img official-signature-img-tutor")}
-              </div>
-            </div>
-            <div class="official-sign-line"></div>
-            <div class="official-sign-name">${escapeHtml(tutorName)}</div>
-            <b>TUTOR (A)</b>
-          </td>
-          <td>
-            <div class="official-sign-space">
-              <div class="official-sign-assets official-sign-assets-director">
-                ${optionalAsset("sello-directora.png", "Sello de Dirección", "official-stamp-img")}
-                ${optionalAsset("firma-directora.png", "Firma de la directora", "official-signature-img official-signature-img-director")}
-              </div>
-            </div>
-            <div class="official-sign-line"></div>
-            <div class="official-sign-name">${escapeHtml(directorName)}</div>
-            <b>DIRECTORA</b>
-          </td>
-        </tr>
-      </table>
-      </div>
+      ${renderReportSignatures(grade)}
     </div>
   `;
 }
@@ -3523,6 +3530,7 @@ function buildReportSheet(st, grade, selectedBim) {
         </tbody>
       </table>
 
+      ${renderReportSignatures(grade)}
       </div>
       ${renderOfficialBottomBox(st, grade)}
     </div>

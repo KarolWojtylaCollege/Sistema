@@ -66,11 +66,12 @@
 /* Hojas aisladas de .report-page, que pertenece al panel de reportes. */
 .report-sheet{display:block;min-height:0;padding:0;background:transparent;box-shadow:none;overflow:visible;}
 .report-sheet > .kw-libreta-page{display:block;position:relative;isolation:isolate;width:210mm;min-height:297mm;height:auto;padding:6mm 6mm 9mm;background:#fff;box-shadow:0 8px 40px #142f541c;gap:0;}
-.report-sheet > .report-summary-page{margin-top:6mm;padding-bottom:35mm;}
+.report-sheet > .kw-libreta-page{padding-bottom:35mm;}
+.report-sheet > .report-summary-page{margin-top:6mm;}
 .report-sheet .report-head,.report-sheet .report-main{height:auto;min-height:0;}
 .report-sheet .report-head tr,.report-sheet .report-head td{height:auto;min-height:0;}
 .report-sheet .report-head .value{min-height:26px;}
-.report-sheet .report-summary-page .official-page-footer{position:absolute;left:6mm;right:6mm;bottom:9mm;margin:0;padding:0;break-inside:avoid;}
+.report-sheet .kw-libreta-page .official-page-footer{position:absolute;left:6mm;right:6mm;bottom:9mm;margin:0;padding:0;break-inside:avoid;}
 .report-insignia{padding-right:0;}
 .report-insignia-motto{align-self:center;width:100%;padding-left:10mm;color:#bf161c;text-align:center;}
 .report-main thead tr:last-child th{background:var(--navy);color:#fff;padding:2px;border-right:.5px solid #9aaec7;border-bottom:.5px solid #9aaec7;}
@@ -83,7 +84,10 @@
 @media print{
   #reportBox{width:198mm;}
   .report-sheet{display:block;width:198mm;min-height:0;padding:0;overflow:visible;}
-  .report-sheet > .kw-libreta-page{display:block;width:198mm;min-height:284.8mm;height:auto;padding:0;box-shadow:none;margin:0;}
+  .report-sheet > .kw-libreta-page{display:block;width:198mm;min-height:284.8mm;height:auto;padding:0 0 32mm;box-shadow:none;margin:0;}
   .report-sheet > .report-summary-page{break-before:page;page-break-before:always;padding-bottom:32mm;}
-  .report-sheet .report-summary-page .official-page-footer{position:absolute;left:0;right:0;bottom:3mm;margin:0;padding:0;break-inside:avoid;page-break-inside:avoid;}
+  .report-sheet .kw-libreta-page .official-page-footer{position:absolute;left:0;right:0;bottom:3mm;margin:0;padding:0;break-inside:avoid;page-break-inside:avoid;}
 }
+
+/* Acercar el lema a las letras sin mover el logo ni el encabezado. */
+.report-insignia-motto{position:relative;top:-2mm;}
