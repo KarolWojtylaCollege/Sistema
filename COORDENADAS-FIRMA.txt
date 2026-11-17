@@ -1,0 +1,16 @@
+FIRMA CENTRADA — COORDENADAS V10
+
+Firma de la directora centrada en ambas páginas.
+Coordenadas aproximadas en milímetros sobre hoja A4 vertical (210 x 297 mm).
+Origen: esquina superior izquierda del papel. X hacia la derecha; Y hacia abajo.
+Condiciones: escala 100%, márgenes CSS de 6 mm, sin encabezados/pies del navegador.
+
+Centro de la línea: X = 105,00 mm; Y = 280,86 mm.
+Inicio de la línea: X = 71,41 mm; Y = 280,86 mm.
+Fin de la línea: X = 138,58 mm; Y = 280,86 mm.
+Área reservada para la firma: X = 71,41 mm; Y = 266,86 mm.
+Ancho del área: 67,16 mm. Alto: 14,00 mm.
+
+Valores medidos en el diseño con estilos de impresión aplicados.
+Son iguales para las dos hojas A4 previstas; una escala distinta del navegador
+cambia las coordenadas físicas. No son coordenadas de pantalla ni píxeles.
