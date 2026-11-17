@@ -3136,7 +3136,6 @@ function renderAuditoria() {
 /* ====== REPORTE ====== */
 
 function renderReportSignatures(grade) {
-  const tutorName = getTutorNameForGrade(grade);
   const directorName = DIRECTOR_DISPLAY_NAME;
   const optionalAsset = (src, alt, className) => `
     <img class="${className}" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"
@@ -3145,18 +3144,9 @@ function renderReportSignatures(grade) {
   `;
   return `
       <div class="official-page-footer">
-      <table class="official-sign-table">
+      <table class="official-sign-table official-sign-table-director-only">
         <tr>
-          <td>
-            <div class="official-sign-space">
-              <div class="official-sign-assets official-sign-assets-tutor">
-                ${optionalAsset("firma-tutor.png", "Firma del tutor(a)", "official-signature-img official-signature-img-tutor")}
-              </div>
-            </div>
-            <div class="official-sign-line"></div>
-            <div class="official-sign-name">${escapeHtml(tutorName)}</div>
-            <b>TUTOR (A)</b>
-          </td>
+
           <td>
             <div class="official-sign-space">
               <div class="official-sign-assets official-sign-assets-director">

@@ -91,3 +91,6 @@
 
 /* Acercar el lema a las letras sin mover el logo ni el encabezado. */
 .report-insignia-motto{position:relative;top:-2mm;}
+
+/* Solo firma de Dirección, conservando su ancho y posición a la derecha. */
+.report-sheet .official-sign-table-director-only{width:42%;margin-left:50%;margin-right:8%;}
