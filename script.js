@@ -3314,8 +3314,6 @@ function renderOfficialBottomBox(st, grade) {
       <div class="official-final-legend">
         PRO (para promovido de grado), RR (para requiere recuperación), PER (para permanencia en el grado)
       </div>
-
-      ${renderReportSignatures(grade)}
     </div>
   `;
 }

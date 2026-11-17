@@ -14,3 +14,8 @@ Ancho del área: 67,16 mm. Alto: 14,00 mm.
 Valores medidos en el diseño con estilos de impresión aplicados.
 Son iguales para las dos hojas A4 previstas; una escala distinta del navegador
 cambia las coordenadas físicas. No son coordenadas de pantalla ni píxeles.
+
+V14: estas coordenadas se conservan únicamente en la primera hoja.
+La segunda hoja ya no contiene el bloque de firma; su espacio queda vacío.
+En la exportación por salón la primera hoja es A4 con el pie fijo a 9 mm
+respecto al borde inferior; el contenido académico se adapta por separado.
