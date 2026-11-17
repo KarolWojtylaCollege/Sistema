@@ -94,3 +94,7 @@
 
 /* Solo firma de Dirección, centrada y conservando su ancho. */
 .report-sheet .official-sign-table-director-only{width:42%;margin-left:auto;margin-right:auto;}
+
+/* Aclaración al final de la tabla académica y área transversal sin letras aisladas. */
+.report-academic-page > .official-nla-note{margin:1.5mm 1mm 0;}
+.report-main .report-area-transversal{font-size:8px;overflow-wrap:normal;word-break:normal;hyphens:none;}

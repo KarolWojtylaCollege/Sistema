@@ -3137,23 +3137,13 @@ function renderAuditoria() {
 
 function renderReportSignatures(grade) {
   const directorName = DIRECTOR_DISPLAY_NAME;
-  const optionalAsset = (src, alt, className) => `
-    <img class="${className}" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"
-      onload="this.dataset.loaded='1'; if(this.nextElementSibling && this.nextElementSibling.classList.contains('official-stamp-fallback')) this.nextElementSibling.remove();"
-      onerror="this.remove()">
-  `;
   return `
       <div class="official-page-footer">
       <table class="official-sign-table official-sign-table-director-only">
         <tr>
 
           <td>
-            <div class="official-sign-space">
-              <div class="official-sign-assets official-sign-assets-director">
-                ${optionalAsset("sello-directora.png", "Sello de Dirección", "official-stamp-img")}
-                ${optionalAsset("firma-directora.png", "Firma de la directora", "official-signature-img official-signature-img-director")}
-              </div>
-            </div>
+            <div class="official-sign-space"></div>
             <div class="official-sign-line"></div>
             <div class="official-sign-name">${escapeHtml(directorName)}</div>
             <b>DIRECTORA</b>
@@ -3201,7 +3191,6 @@ function renderOfficialBottomBox(st, grade) {
   return `
     <div class="official-bottom-box kw-libreta-page report-summary-page">
       <div class="official-scale-block">
-      <p class="official-nla-note"><strong>NLA(*): Nivel de logro alcanzado.</strong> El presente informe de progreso o libreta de notas, no muestra las calificaciones que el estudiante obtuviera después del periodo de recuperación, siendo el periodo de recuperación posterior al término del año lectivo.</p>
       <table class="official-scale-table">
         <colgroup>
           <col class="official-scale-code-col">
@@ -3394,7 +3383,7 @@ function buildReportSheet(st, grade, selectedBim) {
 
           const areaCell =
             idx === 0
-              ? `<td class="report-area" rowspan="${comps.length}">${escapeHtml(
+              ? `<td class="report-area${course === "COMPETENCIAS TRANSVERSALES" ? " report-area-transversal" : ""}" rowspan="${comps.length}">${escapeHtml(
                   course
                 )}</td>`
               : "";
@@ -3520,6 +3509,7 @@ function buildReportSheet(st, grade, selectedBim) {
         </tbody>
       </table>
 
+      <p class="official-nla-note"><strong>NLA(*): Nivel de logro alcanzado.</strong> El presente informe de progreso o libreta de notas, no muestra las calificaciones que el estudiante obtuviera después del periodo de recuperación, siendo el periodo de recuperación posterior al término del año lectivo.</p>
       ${renderReportSignatures(grade)}
       </div>
       ${renderOfficialBottomBox(st, grade)}
