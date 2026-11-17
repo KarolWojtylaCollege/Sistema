@@ -2977,7 +2977,8 @@ function renderLibreta() {
             canPrint
               ? `<button id="btnPrint" class="no-print px-5 py-3 rounded-2xl bg-slate-900 text-white font-black tracking-widest uppercase text-xs shadow-lg">
                   Exportar PDF
-                </button>`
+                </button>
+                <button id="btnPrintClass" class="no-print px-5 py-3 rounded-2xl bg-blue-700 text-white font-black text-xs">Descargar salón</button>`
               : `<span class="no-print px-4 py-3 rounded-2xl bg-blue-50 text-blue-700 border border-blue-100 font-black text-xs uppercase">Observación</span>`
           }
         </div>
@@ -3660,6 +3661,15 @@ document.addEventListener("input", (ev) => {
 document.addEventListener("click", async (ev) => {
   const t = ev.target;
   if (!sessionUser) return;
+
+  if (t?.closest?.('#btnPrintClass')) {
+    if (sessionUser.role !== 'director') return;
+    const grade = state.grade;
+    const bimestre = state.reportCardBimestre || state.config.bimestre || BIMESTRES[0];
+    const items = visibleStudentsForRole(grade).map(student => ({name:student.nombre || '',html:buildReportSheet(student,grade,bimestre)}));
+    window.KWReportBatch.open({grade,bimestre,items});
+    return;
+  }
 
   if (t?.id === "btnPrint") {
     printCurrentReport();
