@@ -21,7 +21,7 @@
     frame.title='Preparación de PDF';frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;
     frame.style.cssText='position:fixed;left:-10000px;top:0;width:900px;height:1300px;border:0;pointer-events:none';
     const ready=new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=()=>reject(new Error('No se pudo preparar el documento.'));});
-    const doc='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><base href="'+base.href+'"><link rel="stylesheet" href="libreta.css?v=integrado-16"><script src="libreta-paginas.js?v=integrado-16"></script><style>html,body{margin:0;padding:0;background:white}.report-sheet.kw-paginated{margin:0}.report-sheet.kw-paginated>.kw-libreta-page{margin:0;box-shadow:none}</style></head><body></body></html>';
+    const doc='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><base href="'+base.href+'"><link rel="stylesheet" href="libreta.css?v=integrado-17"><script src="libreta-paginas.js?v=integrado-17"></script><style>html,body{margin:0;padding:0;background:white}.report-sheet.kw-paginated{margin:0}.report-sheet.kw-paginated>.kw-libreta-page{margin:0;box-shadow:none}</style></head><body></body></html>';
     frame.srcdoc=doc;document.body.append(frame);await ready;
     return frame;
   }

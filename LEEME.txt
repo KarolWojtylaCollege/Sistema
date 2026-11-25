@@ -1,4 +1,4 @@
-SISTEMA ACADÉMICO KAROL WOJTYLA — V15
+SISTEMA ACADÉMICO KAROL WOJTYLA — V17
 
 INSTALACIÓN
 1. Conserva una copia de tu versión anterior.
@@ -9,14 +9,13 @@ INSTALACIÓN
 LIBRETAS
 - Todas las hojas repiten logo, lema, encabezado, bimestre y datos del alumno.
 - La decoración superior derecha forma un triángulo completo.
-- Todas las hojas reservan un pie fijo para Dirección: espacio vacío para
-  firmar, línea centrada, nombre y cargo. No se incluye una firma dibujada.
+- Pie fijo: primera hoja con solo el escudo; siguientes con escudo y leyenda, sin hora ni nombre de la directora.
 - Los cuadros conservan su altura natural. No se estiran para llenar la hoja.
 - Los textos largos continúan en nuevas hojas, sin invadir el pie de firma.
 - Una fila más alta que el espacio disponible se divide por texto; se repiten
   sus identificadores y notas para reconocer la continuación.
 - NLA(*) queda inmediatamente después de la última fila académica.
-- La escala de calificación comienza en una hoja nueva.
+- La escala comienza como mínimo en la segunda hoja. Si la tabla académica ya continúa en esa hoja, la escala y los demás cuadros aprovechan el espacio restante, sin un salto obligatorio adicional.
 - Pantalla, impresión individual y descarga por salón usan la misma paginación.
 
 IMPRESIÓN INDIVIDUAL
@@ -47,3 +46,16 @@ VALIDACIÓN
 - Prueba de impresión en Edge: 15 páginas para los cuatro casos combinados.
 - El selector de carpetas y una sesión real del backend no formaron parte
   de las pruebas automatizadas; el flujo ZIP sí se verificó.
+
+AJUSTE V16
+Se eliminó el salto obligatorio después de la continuación académica.
+La prueba que ocupaba tres hojas ahora ocupa dos, conservando texto y firma.
+Las libretas más extensas siguen creando las hojas que realmente necesitan.
+
+AJUSTE V17 — PIE DE PÁGINA
+Se retiró el nombre de la directora de todos los pies.
+Primera hoja: solo el escudo original nítido, sin texto ni línea.
+Desde la segunda: escudo, texto de la referencia sin hora, línea y DIRECTORA.
+La fecha coincide con la fecha de la libreta. El texto del firmante se tomó
+de la referencia solicitada; es una representación visual, no una firmacriptográfica ni una validación con certificado digital.
+Verificado en PDF descargado y en libretas de 2, 3 y 6 hojas, sin solapamientos.

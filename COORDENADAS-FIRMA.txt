@@ -1,16 +1,12 @@
-FIRMA DE DIRECCIÓN — V15
+PIE DE PÁGINA — V17
 
-Hoja A4 vertical: 210 x 297 mm. Origen en la esquina superior izquierda.
-El espacio vacío, la línea, el nombre y el cargo se repiten en TODAS las hojas.
-No se utiliza ninguna imagen de firma.
-
+Hoja A4 de 210 x 297 mm. Origen en la esquina superior izquierda.
 Centro horizontal del bloque: X = 105 mm.
-Ancho aproximado de la línea: 67,16 mm.
-Inicio de la línea: X = 71,42 mm. Fin: X = 138,58 mm.
-Espacio para firmar sobre la línea: 14 mm de alto.
-El borde inferior del bloque está a 9 mm del borde inferior del papel.
-La posición vertical exacta de la línea depende de la altura del nombre/cargo.
-
-El contenido termina antes de Y = 262 mm para reservar espacio al pie.
-Condiciones de impresión: A4 vertical, escala 100%, sin encabezados ni pies
-adicionales del navegador. No son coordenadas de pantalla ni píxeles.
+Borde inferior del bloque: Y = 288 mm (a 9 mm del borde inferior).
+Escudo: 19 x 19 mm, mostrado desde el original de alta resolución.
+Primera hoja: únicamente el escudo centrado, sin texto ni línea.
+Desde la segunda: escudo y leyenda; línea de 84 mm, de X = 63 a X = 147 mm.
+No se muestra el nombre de la directora ni la hora.
+La fecha coincide con la de la libreta.
+El contenido termina antes de Y = 262 mm y no invade el pie.
+Imprimir en A4 al 100%, sin encabezados/pies adicionales del navegador.

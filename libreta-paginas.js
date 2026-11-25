@@ -23,7 +23,15 @@
       const head = doc.createElement('div'); head.className = 'kw-page-heading';
       head.append(clone(heading), clone(student));
       body = doc.createElement('div'); body.className = 'kw-page-content';
-      page.append(head, body, clone(signature)); sheet.append(page);
+      const footer = clone(signature);
+      if (sheet.children.length === 0) {
+        footer.classList.add('official-footer-first');
+        footer.querySelectorAll('.official-digital-text,.official-sign-line,b').forEach(n=>n.remove());
+      } else {
+        const date = footer.querySelector('.official-digital-date');
+        if (date) date.textContent = student.querySelector('td:last-child .value')?.textContent.trim() || '';
+      }
+      page.append(head, body, footer); sheet.append(page);
       const top = head.getBoundingClientRect().bottom-page.getBoundingClientRect().top;
       body.style.top = Math.ceil(top)+'px';
       if (body.clientHeight < 100) throw new Error('El encabezado no deja espacio suficiente para el contenido.');

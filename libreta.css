@@ -110,6 +110,15 @@
 .kw-paginated .report-main,.kw-paginated .official-comment-table{height:auto!important}
 .kw-libreta-page::before,.kw-libreta-page::after{width:43mm;height:16mm;background:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 170 62'%3E%3Cpath d='M0 0H170V62Z' fill='%23b58b3c'/%3E%3Cpath d='M8 0H170V59Z' fill='white'/%3E%3Cpath d='M18 0H170V55Z' fill='%23213e61'/%3E%3Cpath d='M55 0H170V42Z' fill='%23142f54'/%3E%3Cpath d='M95 0H170V27Z' fill='%23102746'/%3E%3C/svg%3E");background-size:100% 100%;background-repeat:no-repeat}
 .kw-libreta-page::before,.report-summary-page::before{display:block;right:0;top:0}
+/* V17: escudo original en alta resolución y leyenda sin hora. */
+.report-sheet .official-sign-table-director-only{width:84mm}
+.report-sheet .official-sign-table-director-only td{padding:0}
+.official-digital-mark{display:flex;align-items:center;justify-content:center;gap:2.5mm;min-height:19mm;margin-bottom:1mm}
+.official-footer-crest{position:relative;overflow:hidden;flex:0 0 19mm;width:19mm;height:19mm}
+.official-footer-crest img{display:block;position:absolute;left:0;top:0;width:78.78mm!important;height:19mm!important;max-width:none!important;max-height:none!important;object-fit:fill}
+.official-digital-text{font-family:Arial,Helvetica,sans-serif;font-size:8.5px;font-weight:600;line-height:1.2;text-align:left;color:#000;white-space:nowrap}
+.official-sign-table-director-only b{font-family:Arial,Helvetica,sans-serif;font-size:9px}
+.official-footer-first .official-digital-mark{margin-bottom:0}
 @page{size:A4 portrait;margin:0}
 @media print{
   html,body{margin:0!important;padding:0!important}
