@@ -1,10 +1,10 @@
-PIE DE PÁGINA — V19
+PIE DE PÁGINA — V20
 
 Hoja A4 de 210 x 297 mm. Origen en la esquina superior izquierda.
 Centro horizontal del bloque: X = 105 mm.
 Borde inferior del bloque: Y = 288 mm (a 9 mm del borde inferior).
 Escudo: 19 x 19 mm, mostrado desde el original de alta resolución.
-Primera hoja: escudo alineado a la izquierda del bloque (X = 63 mm), línea para firmar y DIRECTORA.
+Primera hoja: escudo en la misma posición que en las demás hojas (X aproximada = 74,64 mm), línea para firmar y DIRECTORA.
 Desde la segunda: escudo y leyenda; línea de 84 mm, de X = 63 a X = 147 mm.
 El nombre actualizado aparece en la leyenda desde la segunda hoja.
 No se incluye fecha ni hora en el pie.

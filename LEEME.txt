@@ -1,4 +1,4 @@
-SISTEMA ACADÉMICO KAROL WOJTYLA — V19
+SISTEMA ACADÉMICO KAROL WOJTYLA — V20
 
 INSTALACIÓN
 1. Conserva una copia de tu versión anterior.
@@ -62,3 +62,8 @@ Motivo: En señal de conformidad
 No se incluye fecha ni hora en ningún pie. La fecha del encabezado se conserva.
 No hay un nombre adicional debajo de la línea.
 Este bloque reproduce una leyenda visual; no aplica un certificado digital.
+
+AJUSTE V20
+El escudo de la primera hoja ocupa exactamente la misma posición y altura
+que en las demás hojas. Se conserva el espacio de la leyenda sin mostrarla.
+La línea y DIRECTORA mantienen su posición. Alineación comprobada en 13 hojas.

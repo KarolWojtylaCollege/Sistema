@@ -26,7 +26,9 @@
       const footer = clone(signature);
       if (sheet.children.length === 0) {
         footer.classList.add('official-footer-first');
-        footer.querySelectorAll('.official-digital-text').forEach(n=>n.remove());
+        // Conservar el espacio de la leyenda para alinear el escudo y la línea
+        // exactamente igual que en las demás hojas, sin mostrar el texto.
+        footer.querySelectorAll('.official-digital-text').forEach(n=>n.setAttribute('aria-hidden','true'));
       }
       page.append(head, body, footer); sheet.append(page);
       const top = head.getBoundingClientRect().bottom-page.getBoundingClientRect().top;
