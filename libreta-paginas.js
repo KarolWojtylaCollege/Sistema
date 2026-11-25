@@ -130,7 +130,9 @@
     try {
       newPage('report-academic-page');
       addTable(academic,'report-academic-page',source.querySelector('.official-nla-note'));
-      newPage('report-summary-page');
+      // La escala empieza como mínimo en la segunda hoja. Si la tabla
+      // académica ya continúa allí, aprovechar el espacio que queda libre.
+      if (sheet.children.length === 1) newPage('report-summary-page');
       [...summary.children].filter(n=>!n.matches('.official-page-footer,.report-header,.report-head')).forEach(n=>addBlock(n,'report-summary-page'));
       [...sheet.children].forEach((p,i)=>{p.dataset.page=String(i+1);});
       sheet.dataset.paginated='true';

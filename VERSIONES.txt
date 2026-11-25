@@ -1,0 +1,5 @@
+Dependencias incluidas para exportación local:
+html2canvas 1.4.1 - https://github.com/niklasvh/html2canvas
+jsPDF 4.2.1 - https://github.com/parallax/jsPDF
+JSZip 3.10.1 - https://github.com/Stuk/jszip
+Se incluyen sus licencias en esta carpeta.
