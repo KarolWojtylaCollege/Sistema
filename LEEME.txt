@@ -1,4 +1,4 @@
-SISTEMA ACADÉMICO KAROL WOJTYLA — V20
+SISTEMA ACADÉMICO KAROL WOJTYLA — V21
 
 INSTALACIÓN
 1. Conserva una copia de tu versión anterior.
@@ -67,3 +67,7 @@ AJUSTE V20
 El escudo de la primera hoja ocupa exactamente la misma posición y altura
 que en las demás hojas. Se conserva el espacio de la leyenda sin mostrarla.
 La línea y DIRECTORA mantienen su posición. Alineación comprobada en 13 hojas.
+
+AJUSTE V21
+Escudos anclados a una altura fija de 264,6 mm desde arriba de la hoja A4.
+La línea permanece a 284,6 mm. Verificados en el PDF descargado.

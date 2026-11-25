@@ -1,4 +1,4 @@
-PIE DE PÁGINA — V20
+PIE DE PÁGINA — V21
 
 Hoja A4 de 210 x 297 mm. Origen en la esquina superior izquierda.
 Centro horizontal del bloque: X = 105 mm.
@@ -10,3 +10,6 @@ El nombre actualizado aparece en la leyenda desde la segunda hoja.
 No se incluye fecha ni hora en el pie.
 El contenido termina antes de Y = 262 mm y no invade el pie.
 Imprimir en A4 al 100%, sin encabezados/pies adicionales del navegador.
+
+En todas las hojas: esquina superior del escudo X = 74,64 mm; Y = 264,6 mm.
+Línea de firma: Y = 284,6 mm. Escudo de 19 x 19 mm.
