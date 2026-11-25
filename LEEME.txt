@@ -1,4 +1,4 @@
-SISTEMA ACADÉMICO KAROL WOJTYLA — V18
+SISTEMA ACADÉMICO KAROL WOJTYLA — V19
 
 INSTALACIÓN
 1. Conserva una copia de tu versión anterior.
@@ -53,7 +53,7 @@ La prueba que ocupaba tres hojas ahora ocupa dos, conservando texto y firma.
 Las libretas más extensas siguen creando las hojas que realmente necesitan.
 
 AJUSTE V18 — PIE DE PÁGINA
-Primera hoja: escudo centrado, línea para firmar y DIRECTORA.
+Primera hoja: escudo a la izquierda del espacio de firma, línea y DIRECTORA.
 Desde la segunda: escudo y el siguiente texto, conservando línea y DIRECTORA:
 Firmado digitalmente por:
 ROJAS CASTAÑEDA Maria Elizabeth

@@ -3533,7 +3533,7 @@ async function printCurrentReport() {
   if (!w) return toast("Permite ventanas emergentes para imprimir.", "err");
   try { await sheet.kwPagination; await window.KWReportPages.paginate(sheet); }
   catch(error) { w.close(); return toast('No se pudo preparar la impresión: '+error.message, 'err'); }
-  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Libreta</title><link rel="stylesheet" href="'+new URL('libreta.css?v=integrado-18',location.href).href+'"></head><body><div id="reportBox"></div></body></html>');
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Libreta</title><link rel="stylesheet" href="'+new URL('libreta.css?v=integrado-19',location.href).href+'"></head><body><div id="reportBox"></div></body></html>');
   w.document.close();
   w.document.getElementById('reportBox').appendChild(sheet.cloneNode(true));
   await new Promise(resolve => { if(w.document.readyState === 'complete') resolve(); else w.addEventListener('load',resolve,{once:true}); });
