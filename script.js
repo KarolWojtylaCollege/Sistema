@@ -3145,7 +3145,7 @@ function renderReportSignatures(grade) {
           <td>
             <div class="official-digital-mark">
               <div class="official-footer-crest"><img src="insignia-emblema.png" alt="Escudo del colegio"></div>
-              <div class="official-digital-text">Firmado digitalmente por:<br>DIAZ GAYOSO HERALDO<br>DIRCEU FIR 42803738 hard<br>Motivo: Soy el autor del<br>documento<br>Fecha: <span class="official-digital-date"></span></div>
+              <div class="official-digital-text">Firmado digitalmente por:<br>ROJAS CASTAÑEDA Maria Elizabeth<br>FIR 40354388<br>Motivo: En señal de conformidad</div>
             </div>
             <div class="official-sign-line"></div>
             <b>DIRECTORA</b>
@@ -3533,7 +3533,7 @@ async function printCurrentReport() {
   if (!w) return toast("Permite ventanas emergentes para imprimir.", "err");
   try { await sheet.kwPagination; await window.KWReportPages.paginate(sheet); }
   catch(error) { w.close(); return toast('No se pudo preparar la impresión: '+error.message, 'err'); }
-  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Libreta</title><link rel="stylesheet" href="'+new URL('libreta.css?v=integrado-17',location.href).href+'"></head><body><div id="reportBox"></div></body></html>');
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Libreta</title><link rel="stylesheet" href="'+new URL('libreta.css?v=integrado-18',location.href).href+'"></head><body><div id="reportBox"></div></body></html>');
   w.document.close();
   w.document.getElementById('reportBox').appendChild(sheet.cloneNode(true));
   await new Promise(resolve => { if(w.document.readyState === 'complete') resolve(); else w.addEventListener('load',resolve,{once:true}); });

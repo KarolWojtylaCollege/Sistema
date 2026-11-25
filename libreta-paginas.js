@@ -26,10 +26,7 @@
       const footer = clone(signature);
       if (sheet.children.length === 0) {
         footer.classList.add('official-footer-first');
-        footer.querySelectorAll('.official-digital-text,.official-sign-line,b').forEach(n=>n.remove());
-      } else {
-        const date = footer.querySelector('.official-digital-date');
-        if (date) date.textContent = student.querySelector('td:last-child .value')?.textContent.trim() || '';
+        footer.querySelectorAll('.official-digital-text').forEach(n=>n.remove());
       }
       page.append(head, body, footer); sheet.append(page);
       const top = head.getBoundingClientRect().bottom-page.getBoundingClientRect().top;

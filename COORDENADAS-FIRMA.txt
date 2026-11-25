@@ -1,12 +1,12 @@
-PIE DE PÁGINA — V17
+PIE DE PÁGINA — V18
 
 Hoja A4 de 210 x 297 mm. Origen en la esquina superior izquierda.
 Centro horizontal del bloque: X = 105 mm.
 Borde inferior del bloque: Y = 288 mm (a 9 mm del borde inferior).
 Escudo: 19 x 19 mm, mostrado desde el original de alta resolución.
-Primera hoja: únicamente el escudo centrado, sin texto ni línea.
+Primera hoja: escudo centrado, línea para firmar y DIRECTORA.
 Desde la segunda: escudo y leyenda; línea de 84 mm, de X = 63 a X = 147 mm.
-No se muestra el nombre de la directora ni la hora.
-La fecha coincide con la de la libreta.
+El nombre actualizado aparece en la leyenda desde la segunda hoja.
+No se incluye fecha ni hora en el pie.
 El contenido termina antes de Y = 262 mm y no invade el pie.
 Imprimir en A4 al 100%, sin encabezados/pies adicionales del navegador.
