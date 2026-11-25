@@ -3336,6 +3336,14 @@ function renderReport() {
   }
   const selectedBim = state.reportCardBimestre || state.config.bimestre || "I BIMESTRE";
   box.innerHTML = buildReportSheet(st, grade, selectedBim);
+  const sheet = box.querySelector?.('.report-sheet');
+  if (sheet && window.KWReportPages) {
+    sheet.kwPagination = window.KWReportPages.paginate(sheet).catch(error => {
+      console.error(error); toast('No se pudo distribuir la libreta: '+error.message, 'err');
+      throw error;
+    });
+    sheet.kwPagination.catch(()=>{});
+  }
 }
 
 function buildReportSheet(st, grade, selectedBim) {
@@ -3522,7 +3530,9 @@ async function printCurrentReport() {
   if (!sheet) return;
   const w = window.open("", "_blank", "width=1000,height=800");
   if (!w) return toast("Permite ventanas emergentes para imprimir.", "err");
-  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Libreta</title><link rel="stylesheet" href="'+new URL('libreta.css',location.href).href+'"></head><body><div id="reportBox"></div></body></html>');
+  try { await sheet.kwPagination; await window.KWReportPages.paginate(sheet); }
+  catch(error) { w.close(); return toast('No se pudo preparar la impresión: '+error.message, 'err'); }
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Libreta</title><link rel="stylesheet" href="'+new URL('libreta.css?v=integrado-15',location.href).href+'"></head><body><div id="reportBox"></div></body></html>');
   w.document.close();
   w.document.getElementById('reportBox').appendChild(sheet.cloneNode(true));
   await new Promise(resolve => { if(w.document.readyState === 'complete') resolve(); else w.addEventListener('load',resolve,{once:true}); });

@@ -1,0 +1,49 @@
+SISTEMA ACADÉMICO KAROL WOJTYLA — V15
+
+INSTALACIÓN
+1. Conserva una copia de tu versión anterior.
+2. Extrae este ZIP y reemplaza los archivos correspondientes del sistema.
+3. Incluye libreta-paginas.js, exportar-salon.js y la carpeta vendor completa.
+4. Recarga con Ctrl+F5. El inicio de sesión habitual se conserva.
+
+LIBRETAS
+- Todas las hojas repiten logo, lema, encabezado, bimestre y datos del alumno.
+- La decoración superior derecha forma un triángulo completo.
+- Todas las hojas reservan un pie fijo para Dirección: espacio vacío para
+  firmar, línea centrada, nombre y cargo. No se incluye una firma dibujada.
+- Los cuadros conservan su altura natural. No se estiran para llenar la hoja.
+- Los textos largos continúan en nuevas hojas, sin invadir el pie de firma.
+- Una fila más alta que el espacio disponible se divide por texto; se repiten
+  sus identificadores y notas para reconocer la continuación.
+- NLA(*) queda inmediatamente después de la última fila académica.
+- La escala de calificación comienza en una hoja nueva.
+- Pantalla, impresión individual y descarga por salón usan la misma paginación.
+
+IMPRESIÓN INDIVIDUAL
+Pulsa Exportar PDF. Usa papel A4 vertical, escala 100%, sin encabezados ni
+pies del navegador. Los márgenes internos están incluidos en el diseño.
+Una escala personalizada inferior a 100% reduce también el pie de firma.
+
+DESCARGAR SALÓN
+Cada alumno obtiene un PDF independiente, con todas sus hojas.
+Elegir carpeta y guardar crea una subcarpeta en el destino seleccionado.
+Descargar ZIP entrega esa organización dentro de un archivo comprimido.
+Los PDF del salón conservan el diseño en imágenes de alta resolución;
+su texto no es seleccionable. No se reduce una libreta larga a dos páginas.
+
+DATOS Y LÓGICA
+Se mantienen las consultas, autenticación, permisos, guardados, notas,
+conclusiones y cálculos existentes. No se modificó el backend.
+Los datos de alumnos proceden del sistema. No se incluyen alumnos de prueba.
+No se publicó ningún cambio en el sitio del colegio.
+
+VALIDACIÓN
+- Sintaxis JavaScript verificada.
+- Notas, conclusiones y NLA comparados con el original en 56 combinaciones
+  de grado y bimestre.
+- Paginación comprobada con libretas de 2, 3 y 7 hojas, con encabezado,
+  datos y firma en cada hoja, conservación de texto y ausencia de solapamientos.
+- Descarga ZIP real con dos PDF independientes de 3 y 7 hojas.
+- Prueba de impresión en Edge: 15 páginas para los cuatro casos combinados.
+- El selector de carpetas y una sesión real del backend no formaron parte
+  de las pruebas automatizadas; el flujo ZIP sí se verificó.

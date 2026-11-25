@@ -21,21 +21,14 @@
     frame.title='Preparación de PDF';frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;
     frame.style.cssText='position:fixed;left:-10000px;top:0;width:900px;height:1300px;border:0;pointer-events:none';
     const ready=new Promise((resolve,reject)=>{frame.onload=resolve;frame.onerror=()=>reject(new Error('No se pudo preparar el documento.'));});
-    const doc='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><base href="'+base.href+'"><link rel="stylesheet" href="libreta.css?v=integrado-14"><style>'+`
-      html,body{margin:0!important;padding:0!important;background:white;overflow:visible}
-      .report-sheet{zoom:1!important;margin:0!important;width:210mm!important}
-      .report-sheet>.kw-libreta-page{margin:0!important;box-shadow:none;width:210mm!important;height:297mm!important;min-height:297mm!important;padding:6mm!important;overflow:visible}
-      .kw-pdf-content{display:flow-root;transform-origin:top left;width:100%}
-      .kw-pdf-content>.official-nla-note{margin:1.5mm 1mm 0}
-      .report-sheet .official-page-footer{left:6mm!important;right:6mm!important;bottom:9mm!important}
-      .report-sheet *{hyphens:none!important}
-    `+'</style></head><body></body></html>';
+    const doc='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><base href="'+base.href+'"><link rel="stylesheet" href="libreta.css?v=integrado-15"><script src="libreta-paginas.js?v=integrado-15"></script><style>html,body{margin:0;padding:0;background:white}.report-sheet.kw-paginated{margin:0}.report-sheet.kw-paginated>.kw-libreta-page{margin:0;box-shadow:none}</style></head><body></body></html>';
     frame.srcdoc=doc;document.body.append(frame);await ready;
     return frame;
   }
   async function makePdf(frame, item) {
     const doc=frame.contentDocument;
     doc.body.innerHTML=item.html;
+    await frame.contentWindow.KWReportPages.paginate(doc.querySelector('.report-sheet'));
     const pages=[...doc.querySelectorAll('.kw-libreta-page')].map(page=>page.outerHTML);
     if(!pages.length)throw new Error('La libreta no contiene páginas.');
     const pdf=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
@@ -43,15 +36,8 @@
     for(let index=0;index<pages.length;index++) {
       // Una sola hoja en el origen: nunca capturar una segunda hoja desplazada
       // fuera de la ventana ni depender del scroll/zoom del panel principal.
-      doc.body.innerHTML='<div class="report-sheet">'+pages[index]+'</div>';
+      doc.body.innerHTML='<div class="report-sheet kw-paginated">'+pages[index]+'</div>';
       const page=doc.querySelector('.kw-libreta-page');
-      const footer=page.querySelector('.official-page-footer');
-      if(!footer&&!page.classList.contains('report-summary-page'))throw new Error('Falta el pie de la libreta.');
-      footer?.remove();
-      const content=doc.createElement('div');content.className='kw-pdf-content';
-      [...page.childNodes].forEach(node=>content.append(node));
-      page.append(content);
-      if(footer)page.append(footer);
       await Promise.all([...doc.images].map(async img=>{
         try{
           await img.decode();
@@ -62,23 +48,23 @@
         }catch(e){throw new Error('No se pudo cargar una imagen de la libreta.');}
       }));
       await doc.fonts.ready;
-      const bounds=content.getBoundingClientRect();
-      const pageBounds=page.getBoundingClientRect();
-      const contentBottom=footer?footer.getBoundingClientRect().top:pageBounds.bottom-pageBounds.height*35/297;
-      const available=contentBottom-bounds.top-8;
-      const naturalHeight=Math.max(bounds.height,content.scrollHeight);
-      const factor=Math.min(1,available/naturalHeight);
-      if(!Number.isFinite(factor)||factor<=0)throw new Error('No se pudo distribuir el contenido en la hoja.');
-      // Ajustar únicamente cuando no cabe; no estirar cuadros ni desplazar la firma.
-      content.style.transform='translateX('+((bounds.width*(1-factor))/2)+'px) scale('+factor+')';
       const size=page.getBoundingClientRect();
-      const canvas=await window.html2canvas(page,{
-        scale:3,backgroundColor:'#ffffff',logging:false,useCORS:true,
-        foreignObjectRendering:true,
-        scrollX:0,scrollY:0,x:0,y:0,
-        width:Math.ceil(size.width),height:Math.ceil(size.height),
-        windowWidth:900,windowHeight:Math.max(1300,Math.ceil(size.height))
-      });
+      // Documento SVG autocontenido: no hereda el scroll ni recortes de iframes.
+      const width=Math.ceil(size.width),height=Math.ceil(size.height);
+      const svg=doc.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('width',width);svg.setAttribute('height',height);
+      const foreign=doc.createElementNS('http://www.w3.org/2000/svg','foreignObject');
+      foreign.setAttribute('width','100%');foreign.setAttribute('height','100%');
+      const root=doc.createElement('div'),style=doc.createElement('style');
+      style.textContent=[...doc.styleSheets].flatMap(sheet=>[...sheet.cssRules].map(rule=>rule.cssText)).join('\n')+
+        '\n.report-sheet.kw-paginated{margin:0!important}.report-sheet.kw-paginated>.kw-libreta-page{margin:0!important;box-shadow:none}';
+      root.append(style,page.parentElement.cloneNode(true));foreign.append(root);svg.append(foreign);
+      const picture=new frame.contentWindow.Image();
+      picture.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(svg));
+      await picture.decode();
+      const canvas=doc.createElement('canvas');canvas.width=width*3;canvas.height=height*3;
+      const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);
+      context.drawImage(picture,0,0,canvas.width,canvas.height);
       if(index)pdf.addPage();
       pdf.addImage(canvas,'PNG',0,0,210,297,undefined,'FAST');
       canvas.width=canvas.height=1;
@@ -111,7 +97,7 @@
           dir=await root.getDirectoryHandle(folderName,{create:true});
         }
         msg.textContent='Preparando la exportación…';
-        await Promise.all([load('html2canvas.min.js'),load('jspdf.min.js'),...(mode==='zip'?[load('jszip.min.js')]:[])]);
+        await Promise.all([load('jspdf.min.js'),...(mode==='zip'?[load('jszip.min.js')]:[])]);
         if(mode==='zip')zip=new window.JSZip();
         frame=await createFrame();
         for(let i=0;i<items.length&&!cancelled;i++){

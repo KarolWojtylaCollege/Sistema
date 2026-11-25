@@ -98,3 +98,23 @@
 /* Aclaración al final de la tabla académica y área transversal sin letras aisladas. */
 .report-academic-page > .official-nla-note{margin:1.5mm 1mm 0;}
 .report-main .report-area-transversal{font-size:8px;overflow-wrap:normal;word-break:normal;hyphens:none;}
+
+/* V15: páginas medidas, iguales en pantalla, impresión y PDF. */
+.report-sheet.kw-paginated{display:block;width:210mm;margin:0 auto;padding:0;zoom:1!important}
+.report-sheet.kw-paginated>.kw-libreta-page{display:block;width:210mm;height:297mm;min-height:297mm;max-height:297mm;padding:6mm;margin:0 0 6mm;position:relative;overflow:hidden;break-inside:avoid;page-break-inside:avoid}
+.kw-page-heading{display:flow-root;position:relative;z-index:1}
+.kw-page-content{position:absolute;left:6mm;right:6mm;bottom:35mm;display:block;overflow:visible}
+.kw-page-content>.official-nla-note{margin:1.5mm 1mm 0}
+.kw-paginated .official-page-footer{position:absolute!important;left:6mm!important;right:6mm!important;bottom:9mm!important;margin:0!important;padding:0!important}
+.kw-paginated *{hyphens:none!important}
+.kw-paginated .report-main,.kw-paginated .official-comment-table{height:auto!important}
+.kw-libreta-page::before,.kw-libreta-page::after{width:43mm;height:16mm;background:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 170 62'%3E%3Cpath d='M0 0H170V62Z' fill='%23b58b3c'/%3E%3Cpath d='M8 0H170V59Z' fill='white'/%3E%3Cpath d='M18 0H170V55Z' fill='%23213e61'/%3E%3Cpath d='M55 0H170V42Z' fill='%23142f54'/%3E%3Cpath d='M95 0H170V27Z' fill='%23102746'/%3E%3C/svg%3E");background-size:100% 100%;background-repeat:no-repeat}
+.kw-libreta-page::before,.report-summary-page::before{display:block;right:0;top:0}
+@page{size:A4 portrait;margin:0}
+@media print{
+  html,body{margin:0!important;padding:0!important}
+  #reportBox{width:210mm!important;padding:0!important;margin:0!important}
+  .report-sheet.kw-paginated{width:210mm!important;margin:0!important}
+  .report-sheet.kw-paginated>.kw-libreta-page{width:210mm!important;height:297mm!important;min-height:297mm!important;max-height:297mm!important;padding:6mm!important;margin:0!important;box-shadow:none;break-before:auto;page-break-before:auto;break-after:page;page-break-after:always;overflow:hidden}
+  .report-sheet.kw-paginated>.kw-libreta-page:last-child{break-after:auto;page-break-after:auto}
+}
